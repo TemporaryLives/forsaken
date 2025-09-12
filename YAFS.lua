@@ -20,9 +20,11 @@ local StarterGui = game:GetService("StarterGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 
+
 --========================================================
 -- Helpers
 --========================================================
+
 local function destroyChildrenByName(obj, name)
     for _, child in ipairs(obj:GetChildren()) do
         if child.Name == name then
@@ -40,8 +42,10 @@ end
 local function getClosestGenerator(maxDist)
     local map = getMap()
     if not map then return end
+
     local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
+
     local closest, dist = nil, maxDist or 12
     for _, obj in ipairs(map:GetChildren()) do
         if obj.Name == "Generator" and obj:FindFirstChild("Remotes") then
@@ -56,6 +60,7 @@ local function getClosestGenerator(maxDist)
             end
         end
     end
+
     return closest
 end
 
@@ -76,16 +81,22 @@ local function isRepairing()
     return false
 end
 
+
 --========================================================
 -- Generator Tab
 --========================================================
+
 local GeneratorTab = Window:CreateTab("Generator Tab", 96559240692119)
-local autoRepair, repairCooldown, lastRepair = false, 6.2, 0
+local autoRepair = false
+local repairCooldown = 6.2
+local lastRepair = 0
 
 GeneratorTab:CreateToggle({
     Name = "Auto-Repair Generators",
     CurrentValue = false,
-    Callback = function(v) autoRepair = v end
+    Callback = function(v)
+        autoRepair = v
+    end
 })
 
 GeneratorTab:CreateInput({
@@ -105,9 +116,14 @@ GeneratorTab:CreateButton({
     Callback = function()
         local now = tick()
         if now - lastRepair < 2.4 then
-            Rayfield:Notify({Title="Cooldown",Content="You're firing too fast!",Duration=1.5})
+            Rayfield:Notify({
+                Title = "Cooldown",
+                Content = "You're firing it too fast!",
+                Duration = 1.5
+            })
             return
         end
+
         local gen = getClosestGenerator(12)
         if gen and isRepairing() then
             local re = gen.Remotes:FindFirstChild("RE")
@@ -145,7 +161,9 @@ end)
 --========================================================
 -- ESP Tab
 --========================================================
+
 local ESPTab = Window:CreateTab("ESP Tab", 114055269167425)
+
 local Colors = {
     SurvivorText   = Color3.fromRGB(255,191,0),
     KillerText     = Color3.fromRGB(255,0,0),
@@ -155,92 +173,90 @@ local Colors = {
     Deployables    = Color3.fromRGB(191,255,191),
     Generator      = Color3.fromRGB(255,255,255),
     FakeGenerator  = Color3.fromRGB(128,0,128),
-    Footprints     = Color3.fromRGB(255,0,0)
+    Footprints     = Color3.fromRGB(255, 0, 0)
 }
-local ESPStates = {Text=false,AuraPlayers=false,Consumables=false,Deployables=false,Generators=false,FakeGenerators=false,Footprints=false}
+
+local ESPStates = {
+    Text = false,
+    AuraPlayers = false,
+    Consumables = false,
+    Deployables = false,
+    Generators = false,
+    FakeGenerators = false,
+    Footprints = false
+}
+
 local ESPExtraInfo = false
 
--- Better ESP creator
+
+-- Create ESP text above players
 local function createTextESP(character, textColor)
     if character == LocalPlayer.Character then return end
     if not character:FindFirstChild("HumanoidRootPart") then return end
-    local billboard = character:FindFirstChild("ESPText")
-    if not billboard then
-        billboard = Instance.new("BillboardGui")
-        billboard.Name = "ESPText"
-        billboard.Adornee = character.HumanoidRootPart
-        billboard.Size = UDim2.new(0, 100, 0, 30)
-        billboard.StudsOffset = Vector3.new(0, 4.2, 0)
-        billboard.AlwaysOnTop = true
+    if character:FindFirstChild("ESPText") then return end
 
-        -- Use UIListLayout for stacking multiple labels
-        local layout = Instance.new("UIListLayout")
-        layout.SortOrder = Enum.SortOrder.LayoutOrder
-        layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-        layout.VerticalAlignment = Enum.VerticalAlignment.Center
-        layout.Parent = billboard
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESPText"
+    billboard.Adornee = character.HumanoidRootPart
+    billboard.Size = UDim2.new(0, 100, 0, 25)
+    billboard.StudsOffset = Vector3.new(0, 3.9, 0)
+    billboard.AlwaysOnTop = true
 
-        local label = Instance.new("TextLabel")
-        label.Name = "NameLabel"
-        label.Size = UDim2.new(1, 0, 0, 0)
-        label.AutomaticSize = Enum.AutomaticSize.Y
-        label.BackgroundTransparency = 1
-        label.TextColor3 = textColor
-        label.Font = Enum.Font.GothamBold
-        label.TextScaled = true
-        label.Text = character.Name
-        label.LayoutOrder = 1
-        label.Parent = billboard
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = textColor
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 15
+    label.Text = character.Name
+    label.Parent = billboard
 
-        billboard.Parent = character
-    else
-        local label = billboard:FindFirstChild("NameLabel")
-        if label then label.TextColor3 = textColor end
-    end
+    billboard.Parent = character
 end
 
--- Fixed Extra Info ESP
+
+-- Create ESP with extra info (@username + HP)
 local function createExtraInfoESP(character)
     if character == LocalPlayer.Character then return end
     if not character:FindFirstChild("HumanoidRootPart") then return end
-
-    local billboard = character:FindFirstChild("ESPText")
-    if not billboard then
-        createTextESP(character, Color3.fromRGB(255, 255, 255))
-        billboard = character:FindFirstChild("ESPText")
-    end
-    if not billboard then return end
-
-    local old = billboard:FindFirstChild("ESPExtraInfo")
-    if old then old:Destroy() end
+    if character:FindFirstChild("ESPExtraInfo") then return end
 
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     local player = Players:GetPlayerFromCharacter(character)
     if not humanoid or not player then return end
 
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESPExtraInfo"
+    billboard.Adornee = character.HumanoidRootPart
+    billboard.Size = UDim2.new(0, 150, 0, 30)
+    billboard.StudsOffset = Vector3.new(0, 2.9, 0)
+    billboard.AlwaysOnTop = true
+
     local label = Instance.new("TextLabel")
-    label.Name = "ESPExtraInfo"
-    label.Size = UDim2.new(1, 0, 0, 0)
-    label.AutomaticSize = Enum.AutomaticSize.Y
+    label.Size = UDim2.new(1, 0, 1, 0)
     label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255,255,255)
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
     label.Font = Enum.Font.GothamBold
-    label.TextScaled = true
-    label.Text = "@"..player.Name.." | HP: "..math.floor(humanoid.Health)
-    label.LayoutOrder = 2
+    label.TextSize = 14
+    label.Text = "@" .. player.Name .. " | HP: " .. math.floor(humanoid.Health)
     label.Parent = billboard
 
     humanoid.HealthChanged:Connect(function(hp)
         if label and label.Parent then
-            label.Text = "@"..player.Name.." | HP: "..math.floor(hp)
+            label.Text = "@" .. player.Name .. " | HP: " .. math.floor(hp)
         end
     end)
+
+    billboard.Parent = character
 end
+
 
 -- Aura highlights
 local function createAura(obj, color)
     if obj == LocalPlayer.Character then return end
-    if obj:FindFirstChild("PlayerAura") or obj:FindFirstChild("Aura") then return end
+    if obj:FindFirstChild("PlayerAura") then return end
+    if obj:FindFirstChild("Aura") then return end
+
     local h = Instance.new("Highlight")
     h.Name = "Aura"
     h.Adornee = obj
@@ -251,40 +267,181 @@ local function createAura(obj, color)
     h.Parent = obj
 end
 
--- ESP update loop
+
+-- Handle aura conflicts between Aura & PlayerAura
+local function handleAuraConflict(obj)
+    local aura = obj:FindFirstChild("Aura")
+    local pa = obj:FindFirstChild("PlayerAura")
+    if aura and pa then
+        aura.Enabled = false
+        pa:GetPropertyChangedSignal("Name"):Connect(function()
+            if pa.Name == "goodbai" then
+                pa.Destroying:Wait()
+                aura.Enabled = true
+            end
+        end)
+    end
+end
+
+
+-- ESP updater loop
 task.spawn(function()
     while true do
         task.wait(0.5)
         local map = getMap()
-        local function updateCharESP(char, color)
-            if ESPStates.Text then
-                createTextESP(char, color)
-                if ESPExtraInfo then
-                    createExtraInfoESP(char)
+
+        -- Survivors
+        local survivors = workspace.Players:FindFirstChild("Survivors")
+        if survivors then
+            for _, char in ipairs(survivors:GetChildren()) do
+                if ESPStates.Text then
+                    createTextESP(char, Colors.SurvivorText)
+                    if ESPExtraInfo then
+                        createExtraInfoESP(char)
+                    else
+                        destroyChildrenByName(char, "ESPExtraInfo")
+                    end
                 else
-                    destroyChildrenByName(char:FindFirstChild("ESPText") or char, "ESPExtraInfo")
+                    destroyChildrenByName(char, "ESPText")
+                    destroyChildrenByName(char, "ESPExtraInfo")
                 end
-            else
-                destroyChildrenByName(char, "ESPText")
+
+                if ESPStates.AuraPlayers then
+                    createAura(char, Colors.SurvivorAura)
+                else
+                    destroyChildrenByName(char, "Aura")
+                end
+
+                handleAuraConflict(char)
             end
         end
 
-        local survivors = workspace.Players:FindFirstChild("Survivors")
-        if survivors then for _, c in ipairs(survivors:GetChildren()) do updateCharESP(c, Colors.SurvivorText) end end
+        -- Killers
         local killers = workspace.Players:FindFirstChild("Killers")
-        if killers then for _, c in ipairs(killers:GetChildren()) do updateCharESP(c, Colors.KillerText) end end
+        if killers then
+            for _, char in ipairs(killers:GetChildren()) do
+                if ESPStates.Text then
+                    createTextESP(char, Colors.KillerText)
+                    if ESPExtraInfo then
+                        createExtraInfoESP(char)
+                    else
+                        destroyChildrenByName(char, "ESPExtraInfo")
+                    end
+                else
+                    destroyChildrenByName(char, "ESPText")
+                    destroyChildrenByName(char, "ESPExtraInfo")
+                end
+
+                if ESPStates.AuraPlayers then
+                    createAura(char, Colors.KillerAura)
+                else
+                    destroyChildrenByName(char, "Aura")
+                end
+
+                handleAuraConflict(char)
+            end
+        end
+
+        -- Map objects
+        if map then
+            for _, obj in ipairs(map:GetChildren()) do
+                if obj.Name == "Generator" and obj:FindFirstChild("Progress") then
+                    if ESPStates.Generators and obj.Progress.Value < 100 then
+                        createAura(obj, Colors.Generator)
+                    else
+                        destroyChildrenByName(obj, "Aura")
+                    end
+                elseif obj.Name == "FakeGenerator" then
+                    if ESPStates.FakeGenerators then
+                        createAura(obj, Colors.FakeGenerator)
+                    else
+                        destroyChildrenByName(obj, "Aura")
+                    end
+                elseif obj.Name == "Medkit" or obj.Name == "BloxyCola" then
+                    if ESPStates.Consumables then
+                        createAura(obj, Colors.Consumables)
+                    else
+                        destroyChildrenByName(obj, "Aura")
+                    end
+                elseif obj.Name == "BuildermanSentry"
+                    or obj.Name == "BuildermanDispenser"
+                    or string.find(obj.Name, "TaphTripwire")
+                    or obj.Name == "SubspaceTripmine" then
+                    if ESPStates.Deployables then
+                        createAura(obj, Colors.Deployables)
+                    else
+                        destroyChildrenByName(obj, "Aura")
+                    end
+                end
+            end
+
+            -- Footprints
+            for _, folder in ipairs(workspace.Map.Ingame:GetChildren()) do
+                if string.find(folder.Name, "Shadows") then
+                    for _, shadow in ipairs(folder:GetChildren()) do
+                        shadow.Transparency = 0
+                        if ESPStates.Footprints then
+                            createAura(shadow, Colors.Footprints)
+                        else
+                            destroyChildrenByName(shadow, "Aura")
+                        end
+                    end
+                end
+            end
+        end
     end
 end)
 
+
 -- ESP Toggles
-ESPTab:CreateToggle({Name="Show ESP (Text)",CurrentValue=false,Callback=function(s) ESPStates.Text=s end})
-ESPTab:CreateToggle({Name="ESP Extra Info",CurrentValue=false,Callback=function(s) ESPExtraInfo=s end})
-ESPTab:CreateToggle({Name="Highlight Players",CurrentValue=false,Callback=function(s) ESPStates.AuraPlayers=s end})
-ESPTab:CreateToggle({Name="Show Consumables",CurrentValue=false,Callback=function(s) ESPStates.Consumables=s end})
-ESPTab:CreateToggle({Name="Show Deployables",CurrentValue=false,Callback=function(s) ESPStates.Deployables=s end})
-ESPTab:CreateToggle({Name="Show Generators (<100)",CurrentValue=false,Callback=function(s) ESPStates.Generators=s end})
-ESPTab:CreateToggle({Name="Show Fake Generators",CurrentValue=false,Callback=function(s) ESPStates.FakeGenerators=s end})
-ESPTab:CreateToggle({Name="Show Digital Footprints",CurrentValue=false,Callback=function(s) ESPStates.Footprints=s end})
+ESPTab:CreateToggle({
+    Name = "Show ESP",
+    CurrentValue = false,
+    Callback = function(s) ESPStates.Text = s end
+})
+
+ESPTab:CreateToggle({
+    Name = "Show Extra ESP Info",
+    CurrentValue = false,
+    Callback = function(s) ESPExtraInfo = s end
+})
+
+ESPTab:CreateToggle({
+    Name = "Highlight Players",
+    CurrentValue = false,
+    Callback = function(s) ESPStates.AuraPlayers = s end
+})
+
+ESPTab:CreateToggle({
+    Name = "Show Consumables",
+    CurrentValue = false,
+    Callback = function(s) ESPStates.Consumables = s end
+})
+
+ESPTab:CreateToggle({
+    Name = "Show Deployables",
+    CurrentValue = false,
+    Callback = function(s) ESPStates.Deployables = s end
+})
+
+ESPTab:CreateToggle({
+    Name = "Show Generators (<100)",
+    CurrentValue = false,
+    Callback = function(s) ESPStates.Generators = s end
+})
+
+ESPTab:CreateToggle({
+    Name = "Show Fake Generators",
+    CurrentValue = false,
+    Callback = function(s) ESPStates.FakeGenerators = s end
+})
+
+ESPTab:CreateToggle({
+    Name = "Show Digital Footprints",
+    CurrentValue = false,
+    Callback = function(s) ESPStates.Footprints = s end
+})
+
 
 --========================================================
 -- Fake Generator Detection
@@ -496,29 +653,4 @@ RunService.Heartbeat:Connect(function()
             if hrp then
                 local spawns=getMap() and workspace.Map.Ingame.Map.SpawnPoints.Survivors:GetChildren() or {}
                 for _,s in ipairs(spawns) do
-                    if s.Name=="SurvivorSpawn" and (hrp.Position-s.Position).Magnitude<=25 then
-                        teleported=true break
-                    end
-                end
-            end
-            if teleported then notify("c00lgui Tracker","@"..player.Name.." teleported.")
-            else notify("c00lgui Tracker","@"..player.Name.."'s c00lgui cancelled.") end
-            activeC00lParts[player]=nil
-        end
-    end
-end)
-
-MiscTab:CreateToggle({
-    Name="c00lgui Tracker",
-    CurrentValue=false,
-    Callback=function(s)
-        trackerEnabled=s
-        if trackerEnabled then
-            local surv=workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")
-            if surv then
-                for _,m in ipairs(surv:GetChildren()) do if m.Name=="007n7" then trackPlayer(m) end end
-                surv.ChildAdded:Connect(function(m) if m.Name=="007n7" then trackPlayer(m) end end)
-            end
-        end
-    end
-})
+                    if s.Name==
