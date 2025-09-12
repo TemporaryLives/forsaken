@@ -159,7 +159,231 @@ task.spawn(function()
 end)
 
 
+--========================================================
+-- ESP Tab (UIListLayout Version)
+--========================================================
 
+local ESPTab = Window:CreateTab("ESP Tab", 114055269167425)
+
+local Colors = {
+    SurvivorText   = Color3.fromRGB(255,191,0),
+    KillerText     = Color3.fromRGB(255,0,0),
+    SurvivorAura   = Color3.fromRGB(255,191,0),
+    KillerAura     = Color3.fromRGB(255,0,0),
+    Consumables    = Color3.fromRGB(255,106,180),
+    Deployables    = Color3.fromRGB(191,255,191),
+    Generator      = Color3.fromRGB(255,255,255),
+    FakeGenerator  = Color3.fromRGB(128,0,128),
+    Footprints     = Color3.fromRGB(255, 0, 0)
+}
+
+local ESPStates = {
+    Text = false,
+    AuraPlayers = false,
+    Consumables = false,
+    Deployables = false,
+    Generators = false,
+    FakeGenerators = false,
+    Footprints = false
+}
+
+local ESPExtraInfo = false
+
+local function destroyChildrenByName(obj, name)
+    for _, child in ipairs(obj:GetChildren()) do
+        if child.Name == name then
+            child:Destroy()
+        end
+    end
+end
+
+-- Remove ESP from character
+local function removeESP(char)
+    destroyChildrenByName(char, "ESPGui")
+    destroyChildrenByName(char, "Aura")
+end
+
+-- Create ESP Billboard with UIListLayout
+local function createESP(character, textColor)
+    if character == LocalPlayer.Character then return end
+    if character:FindFirstChild("ESPGui") then return end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESPGui"
+    billboard.Adornee = hrp
+    billboard.Size = UDim2.new(0, 180, 0, 50)
+    billboard.AlwaysOnTop = true
+    billboard.StudsOffset = Vector3.new(0, 4.5, 0)
+
+    -- UIListLayout handles spacing
+    local layout = Instance.new("UIListLayout")
+    layout.FillDirection = Enum.FillDirection.Vertical
+    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 2)
+    layout.Parent = billboard
+
+    -- Main text
+    local mainLabel = Instance.new("TextLabel")
+    mainLabel.Size = UDim2.new(1, 0, 0, 20)
+    mainLabel.BackgroundTransparency = 1
+    mainLabel.TextColor3 = textColor
+    mainLabel.Font = Enum.Font.GothamBold
+    mainLabel.TextSize = 16
+    mainLabel.Text = character.Name
+    mainLabel.Parent = billboard
+
+    -- Extra info
+    if ESPExtraInfo then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        local player = Players:GetPlayerFromCharacter(character)
+        if humanoid and player then
+            local extraLabel = Instance.new("TextLabel")
+            extraLabel.Size = UDim2.new(1, 0, 0, 18)
+            extraLabel.BackgroundTransparency = 1
+            extraLabel.TextColor3 = Color3.fromRGB(255,255,255)
+            extraLabel.Font = Enum.Font.GothamBold
+            extraLabel.TextSize = 14
+            extraLabel.Text = "@" .. player.Name .. " | HP: " .. math.floor(humanoid.Health)
+            extraLabel.Parent = billboard
+
+            humanoid.HealthChanged:Connect(function(hp)
+                if extraLabel.Parent then
+                    extraLabel.Text = "@" .. player.Name .. " | HP: " .. math.floor(hp)
+                end
+            end)
+        end
+    end
+
+    billboard.Parent = character
+end
+
+-- Create Aura
+local function createAura(obj, color)
+    if obj:FindFirstChild("Aura") then return end
+    local h = Instance.new("Highlight")
+    h.Name = "Aura"
+    h.Adornee = obj
+    h.FillColor = color
+    h.FillTransparency = 0.5
+    h.OutlineColor = color
+    h.OutlineTransparency = 0
+    h.Parent = obj
+end
+
+-- Ragdoll cleanup
+local function trackRagdolls()
+    local ragdollsFolder = workspace:FindFirstChild("Ragdolls")
+    if not ragdollsFolder then return end
+    for _, ragdoll in ipairs(ragdollsFolder:GetChildren()) do
+        if not ragdoll:FindFirstChild("CleanedESP") then
+            local tag = Instance.new("BoolValue")
+            tag.Name = "CleanedESP"
+            tag.Parent = ragdoll
+            removeESP(ragdoll)
+        end
+    end
+end
+
+-- Main ESP updater
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        trackRagdolls()
+
+        -- Survivors
+        local survivors = workspace.Players:FindFirstChild("Survivors")
+        if survivors then
+            for _, char in ipairs(survivors:GetChildren()) do
+                local humanoid = char:FindFirstChildOfClass("Humanoid")
+                if not humanoid or humanoid.Health <= 0 then
+                    removeESP(char)
+                else
+                    if ESPStates.Text then
+                        createESP(char, Colors.SurvivorText)
+                    else
+                        removeESP(char)
+                    end
+
+                    if ESPStates.AuraPlayers then
+                        createAura(char, Colors.SurvivorAura)
+                    else
+                        destroyChildrenByName(char, "Aura")
+                    end
+                end
+            end
+        end
+
+        -- Killers
+        local killers = workspace.Players:FindFirstChild("Killers")
+        if killers then
+            for _, char in ipairs(killers:GetChildren()) do
+                local humanoid = char:FindFirstChildOfClass("Humanoid")
+                if not humanoid or humanoid.Health <= 0 then
+                    removeESP(char)
+                else
+                    if ESPStates.Text then
+                        createESP(char, Colors.KillerText)
+                    else
+                        removeESP(char)
+                    end
+
+                    if ESPStates.AuraPlayers then
+                        createAura(char, Colors.KillerAura)
+                    else
+                        destroyChildrenByName(char, "Aura")
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Dynamic scaling & cutoff
+RunService.RenderStepped:Connect(function()
+    local cam = workspace.CurrentCamera
+    if not cam then return end
+    trackRagdolls()
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        local char = player.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local dist = (cam.CFrame.Position - hrp.Position).Magnitude
+            local gui = char:FindFirstChild("ESPGui")
+            if gui then
+                if dist > 700 then
+                    gui.Enabled = false
+                else
+                    gui.Enabled = true
+                    -- Scale text size based on distance
+                    for _, label in ipairs(gui:GetChildren()) do
+                        if label:IsA("TextLabel") then
+                            local scale = math.clamp(18 - (dist * 0.02), 13, 18)
+                            if label.TextSize > 14 then
+                                label.TextSize = scale
+                            else
+                                label.TextSize = math.clamp(scale - 2, 11, 14)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- ESP Toggles
+ESPTab:CreateToggle({ Name = "Show ESP", CurrentValue = false, Callback = function(s) ESPStates.Text = s end })
+ESPTab:CreateToggle({ Name = "Show Extra ESP Info", CurrentValue = false, Callback = function(s) ESPExtraInfo = s end })
+ESPTab:CreateToggle({ Name = "Highlight Players", CurrentValue = false, Callback = function(s) ESPStates.AuraPlayers = s end })
+ESPTab:CreateToggle({ Name = "Show Consumables", CurrentValue = false, Callback = function(s) ESPStates.Consumables = s end })
+ESPTab:CreateToggle({ Name = "Show Deployables", CurrentValue = false, Callback = function(s) ESPStates.Deployables = s end })
+ESPTab:CreateToggle({ Name = "Show Generators (<100)", CurrentValue = false, Callback = function(s) ESPStates.Generators = s end })
+ESPTab:CreateToggle({ Name = "Show Fake Generators", CurrentValue = false, Callback = function(s) ESPStates.FakeGenerators = s end })
+ESPTab:CreateToggle({ Name = "Show Digital Footprints", CurrentValue = false, Callback = function(s) ESPStates.Footprints = s end })
 
 --========================================================
 -- Player Tab
