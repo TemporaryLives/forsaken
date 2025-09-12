@@ -199,15 +199,15 @@ local function createTextESP(character, textColor)
     billboard.Name = "ESPText"
     billboard.Adornee = character.HumanoidRootPart
     billboard.Size = UDim2.new(0, 100, 0, 25)
-    billboard.StudsOffset = Vector3.new(0, 3.5, 0)
+    billboard.StudsOffset = Vector3.new(0, 3.2, 0)
     billboard.AlwaysOnTop = true
 
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, 0, 1, 0)
     label.BackgroundTransparency = 1
     label.TextColor3 = textColor
-    label.Font = Enum.Font.Bodoni
-    label.TextSize = 18
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 17
     label.Text = character.Name
     label.Parent = billboard
 
@@ -229,7 +229,7 @@ local function createExtraInfoESP(character)
     billboard.Name = "ESPExtraInfo"
     billboard.Adornee = character.HumanoidRootPart
     billboard.Size = UDim2.new(0, 150, 0, 30)
-    billboard.StudsOffset = Vector3.new(0, 2.2, 0)
+    billboard.StudsOffset = Vector3.new(0, 3.4, 0)
     billboard.AlwaysOnTop = true
 
     local label = Instance.new("TextLabel")
@@ -401,6 +401,12 @@ ESPTab:CreateToggle({
 })
 
 ESPTab:CreateToggle({
+    Name = "ESP Extra Info",
+    CurrentValue = false,
+    Callback = function(s) ESPExtraInfo = s end
+})
+
+ESPTab:CreateToggle({
     Name = "Highlight Players",
     CurrentValue = false,
     Callback = function(s) ESPStates.AuraPlayers = s end
@@ -434,12 +440,6 @@ ESPTab:CreateToggle({
     Name = "Show Digital Footprints",
     CurrentValue = false,
     Callback = function(s) ESPStates.Footprints = s end
-})
-
-ESPTab:CreateToggle({
-    Name = "ESP Extra Info",
-    CurrentValue = false,
-    Callback = function(s) ESPExtraInfo = s end
 })
 
 --========================================================
