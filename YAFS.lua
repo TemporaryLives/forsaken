@@ -88,7 +88,7 @@ end
 
 local GeneratorTab = Window:CreateTab("Generator Tab", 96559240692119)
 local autoRepair = false
-local repairCooldown = 3.1
+local repairCooldown = 6.2
 local lastRepair = 0
 
 GeneratorTab:CreateToggle({
@@ -100,12 +100,12 @@ GeneratorTab:CreateToggle({
 })
 
 GeneratorTab:CreateInput({
-    Name = "Repair Cooldown (2.4 - 8)",
+    Name = "Repair Cooldown (2.4 - 15)",
     PlaceholderText = tostring(repairCooldown),
     RemoveTextAfterFocusLost = false,
     Callback = function(val)
         local num = tonumber(val)
-        if num and num >= 2.4 and num <= 8 then
+        if num and num >= 2.4 and num <= 15 then
             repairCooldown = num
         end
     end
@@ -118,8 +118,8 @@ GeneratorTab:CreateButton({
         if now - lastRepair < 2.4 then
             Rayfield:Notify({
                 Title = "Cooldown",
-                Content = "You must wait 2.4s before firing again.",
-                Duration = 2
+                Content = "You're firing it too fast!",
+                Duration = 1.5
             })
             return
         end
