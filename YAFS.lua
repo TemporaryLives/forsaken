@@ -173,7 +173,7 @@ local Colors = {
     Deployables    = Color3.fromRGB(191,255,191),
     Generator      = Color3.fromRGB(255,255,255),
     FakeGenerator  = Color3.fromRGB(128,0,128),
-    Footprints     = Color3.fromRGB(0,255,255)
+    Footprints     = Color3.fromRGB(255, 0, 0)
 }
 
 local ESPStates = {
@@ -652,4 +652,29 @@ RunService.Heartbeat:Connect(function()
             if hrp then
                 local spawns=getMap() and workspace.Map.Ingame.Map.SpawnPoints.Survivors:GetChildren() or {}
                 for _,s in ipairs(spawns) do
-                    if
+                    if s.Name=="SurvivorSpawn" and (hrp.Position-s.Position).Magnitude<=25 then
+                        teleported=true break
+                    end
+                end
+            end
+            if teleported then notify("c00lgui Tracker","@"..player.Name.." teleported.")
+            else notify("c00lgui Tracker","@"..player.Name.."'s c00lgui cancelled.") end
+            activeC00lParts[player]=nil
+        end
+    end
+end)
+
+MiscTab:CreateToggle({
+    Name="c00lgui Tracker",
+    CurrentValue=false,
+    Callback=function(s)
+        trackerEnabled=s
+        if trackerEnabled then
+            local surv=workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")
+            if surv then
+                for _,m in ipairs(surv:GetChildren()) do if m.Name=="007n7" then trackPlayer(m) end end
+                surv.ChildAdded:Connect(function(m) if m.Name=="007n7" then trackPlayer(m) end end)
+            end
+        end
+    end
+})
