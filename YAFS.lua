@@ -162,7 +162,7 @@ end)
 -- ESP Tab
 --========================================================
 
-local ESPTab = Window:CreateTab("ESP Tab", 4483362458)
+local ESPTab = Window:CreateTab("ESP Tab", 114055269167425)
 
 local Colors = {
     SurvivorText   = Color3.fromRGB(255,191,0),
@@ -483,7 +483,7 @@ end)
 -- Player Tab
 --========================================================
 
-local PlayerTab = Window:CreateTab("Player Tab", 4483362458)
+local PlayerTab = Window:CreateTab("Player Tab", 89251076279188)
 local Sprinting = require(ReplicatedStorage.Systems.Character.Game.Sprinting)
 
 -- Infinite stamina toggle
@@ -565,7 +565,8 @@ PlayerTab:CreateInput({
 -- Misc Tab
 --========================================================
 
-local MiscTab = Window:CreateTab("Misc Tab", 4483362458)
+local MiscTab = Window:CreateTab("Misc Tab", 72612560514066)
+
 local RoundTimer = LocalPlayer.PlayerGui:WaitForChild("RoundTimer").Main
 
 -- Round Timer position slider
@@ -651,29 +652,4 @@ RunService.Heartbeat:Connect(function()
             if hrp then
                 local spawns=getMap() and workspace.Map.Ingame.Map.SpawnPoints.Survivors:GetChildren() or {}
                 for _,s in ipairs(spawns) do
-                    if s.Name=="SurvivorSpawn" and (hrp.Position-s.Position).Magnitude<=25 then
-                        teleported=true break
-                    end
-                end
-            end
-            if teleported then notify("c00lgui Tracker","@"..player.Name.." teleported.")
-            else notify("c00lgui Tracker","@"..player.Name.."'s c00lgui cancelled.") end
-            activeC00lParts[player]=nil
-        end
-    end
-end)
-
-MiscTab:CreateToggle({
-    Name="c00lgui Tracker",
-    CurrentValue=false,
-    Callback=function(s)
-        trackerEnabled=s
-        if trackerEnabled then
-            local surv=workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")
-            if surv then
-                for _,m in ipairs(surv:GetChildren()) do if m.Name=="007n7" then trackPlayer(m) end end
-                surv.ChildAdded:Connect(function(m) if m.Name=="007n7" then trackPlayer(m) end end)
-            end
-        end
-    end
-})
+                    if
