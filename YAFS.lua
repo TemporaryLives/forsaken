@@ -160,7 +160,7 @@ end)
 
 
 --========================================================
--- ESP Tab (UIListLayout Version)
+-- ESP Tab
 --========================================================
 
 local ESPTab = Window:CreateTab("ESP Tab", 114055269167425)
@@ -197,13 +197,26 @@ local function destroyChildrenByName(obj, name)
     end
 end
 
--- Remove ESP from character
+-- Remove ESP & Aura
 local function removeESP(char)
     destroyChildrenByName(char, "ESPGui")
     destroyChildrenByName(char, "Aura")
 end
 
--- Create ESP Billboard with UIListLayout
+-- Create Aura Highlight
+local function createAura(obj, color)
+    if obj:FindFirstChild("Aura") then return end
+    local h = Instance.new("Highlight")
+    h.Name = "Aura"
+    h.Adornee = obj
+    h.FillColor = color
+    h.FillTransparency = 0.5
+    h.OutlineColor = color
+    h.OutlineTransparency = 0
+    h.Parent = obj
+end
+
+-- Create Player ESP with UIListLayout
 local function createESP(character, textColor)
     if character == LocalPlayer.Character then return end
     if character:FindFirstChild("ESPGui") then return end
@@ -213,19 +226,18 @@ local function createESP(character, textColor)
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "ESPGui"
     billboard.Adornee = hrp
-    billboard.Size = UDim2.new(0, 180, 0, 50)
+    billboard.Size = UDim2.new(0, 180, 0, 35) -- slightly smaller for tighter spacing
     billboard.AlwaysOnTop = true
     billboard.StudsOffset = Vector3.new(0, 4.5, 0)
 
-    -- UIListLayout handles spacing
     local layout = Instance.new("UIListLayout")
     layout.FillDirection = Enum.FillDirection.Vertical
     layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Padding = UDim.new(0, 2)
+    layout.Padding = UDim.new(0, 1) -- smaller padding
     layout.Parent = billboard
 
-    -- Main text
+    -- Main Text
     local mainLabel = Instance.new("TextLabel")
     mainLabel.Size = UDim2.new(1, 0, 0, 20)
     mainLabel.BackgroundTransparency = 1
@@ -235,7 +247,7 @@ local function createESP(character, textColor)
     mainLabel.Text = character.Name
     mainLabel.Parent = billboard
 
-    -- Extra info
+    -- Extra Info
     if ESPExtraInfo then
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         local player = Players:GetPlayerFromCharacter(character)
@@ -260,20 +272,44 @@ local function createESP(character, textColor)
     billboard.Parent = character
 end
 
--- Create Aura
-local function createAura(obj, color)
-    if obj:FindFirstChild("Aura") then return end
-    local h = Instance.new("Highlight")
-    h.Name = "Aura"
-    h.Adornee = obj
-    h.FillColor = color
-    h.FillTransparency = 0.5
-    h.OutlineColor = color
-    h.OutlineTransparency = 0
-    h.Parent = obj
+-- Update non-player object highlights
+local function updateObjectHighlights()
+    local map = getMap()
+    if not map then return end
+
+    for _, obj in ipairs(map:GetChildren()) do
+        if obj.Name == "Generator" and ESPStates.Generators and obj:FindFirstChild("Progress") and obj.Progress.Value < 100 then
+            createAura(obj, Colors.Generator)
+        elseif obj.Name == "FakeGenerator" and ESPStates.FakeGenerators then
+            createAura(obj, Colors.FakeGenerator)
+        elseif (obj.Name == "Medkit" or obj.Name == "BloxyCola") and ESPStates.Consumables then
+            createAura(obj, Colors.Consumables)
+        elseif (obj.Name == "BuildermanSentry" or obj.Name == "BuildermanDispenser" or string.find(obj.Name, "TaphTripwire") or obj.Name == "SubspaceTripmine") and ESPStates.Deployables then
+            createAura(obj, Colors.Deployables)
+        else
+            destroyChildrenByName(obj, "Aura")
+        end
+    end
+
+    -- Footprints
+    local ingameMap = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Ingame") and workspace.Map.Ingame:FindFirstChild("Map")
+    if ingameMap then
+        for _, folder in ipairs(ingameMap:GetChildren()) do
+            if string.find(folder.Name, "Shadows") then
+                for _, shadow in ipairs(folder:GetChildren()) do
+                    shadow.Transparency = 0
+                    if ESPStates.Footprints then
+                        createAura(shadow, Colors.Footprints)
+                    else
+                        destroyChildrenByName(shadow, "Aura")
+                    end
+                end
+            end
+        end
+    end
 end
 
--- Ragdoll cleanup
+-- Remove ESP from Ragdolls
 local function trackRagdolls()
     local ragdollsFolder = workspace:FindFirstChild("Ragdolls")
     if not ragdollsFolder then return end
@@ -287,51 +323,32 @@ local function trackRagdolls()
     end
 end
 
--- Main ESP updater
+-- Main ESP Loop
 task.spawn(function()
     while true do
         task.wait(0.5)
         trackRagdolls()
+        updateObjectHighlights()
 
-        -- Survivors
-        local survivors = workspace.Players:FindFirstChild("Survivors")
-        if survivors then
-            for _, char in ipairs(survivors:GetChildren()) do
-                local humanoid = char:FindFirstChildOfClass("Humanoid")
-                if not humanoid or humanoid.Health <= 0 then
+        -- Players
+        for _, player in ipairs(Players:GetPlayers()) do
+            local char = player.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+            if char and hrp and humanoid then
+                if humanoid.Health <= 0 then
                     removeESP(char)
                 else
                     if ESPStates.Text then
-                        createESP(char, Colors.SurvivorText)
+                        local color = (workspace.Players:FindFirstChild("Killers") and workspace.Players.Killers:FindFirstChild(char.Name)) and Colors.KillerText or Colors.SurvivorText
+                        createESP(char, color)
                     else
                         removeESP(char)
                     end
 
                     if ESPStates.AuraPlayers then
-                        createAura(char, Colors.SurvivorAura)
-                    else
-                        destroyChildrenByName(char, "Aura")
-                    end
-                end
-            end
-        end
-
-        -- Killers
-        local killers = workspace.Players:FindFirstChild("Killers")
-        if killers then
-            for _, char in ipairs(killers:GetChildren()) do
-                local humanoid = char:FindFirstChildOfClass("Humanoid")
-                if not humanoid or humanoid.Health <= 0 then
-                    removeESP(char)
-                else
-                    if ESPStates.Text then
-                        createESP(char, Colors.KillerText)
-                    else
-                        removeESP(char)
-                    end
-
-                    if ESPStates.AuraPlayers then
-                        createAura(char, Colors.KillerAura)
+                        local auraColor = (workspace.Players:FindFirstChild("Killers") and workspace.Players.Killers:FindFirstChild(char.Name)) and Colors.KillerAura or Colors.SurvivorAura
+                        createAura(char, auraColor)
                     else
                         destroyChildrenByName(char, "Aura")
                     end
@@ -341,7 +358,7 @@ task.spawn(function()
     end
 end)
 
--- Dynamic scaling & cutoff
+-- Distance-based scaling & 700-stud cutoff
 RunService.RenderStepped:Connect(function()
     local cam = workspace.CurrentCamera
     if not cam then return end
@@ -358,7 +375,6 @@ RunService.RenderStepped:Connect(function()
                     gui.Enabled = false
                 else
                     gui.Enabled = true
-                    -- Scale text size based on distance
                     for _, label in ipairs(gui:GetChildren()) do
                         if label:IsA("TextLabel") then
                             local scale = math.clamp(18 - (dist * 0.02), 13, 18)
@@ -384,6 +400,7 @@ ESPTab:CreateToggle({ Name = "Show Deployables", CurrentValue = false, Callback 
 ESPTab:CreateToggle({ Name = "Show Generators (<100)", CurrentValue = false, Callback = function(s) ESPStates.Generators = s end })
 ESPTab:CreateToggle({ Name = "Show Fake Generators", CurrentValue = false, Callback = function(s) ESPStates.FakeGenerators = s end })
 ESPTab:CreateToggle({ Name = "Show Digital Footprints", CurrentValue = false, Callback = function(s) ESPStates.Footprints = s end })
+
 
 --========================================================
 -- Player Tab
