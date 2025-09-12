@@ -188,7 +188,6 @@ local ESPStates = {
 
 local ESPExtraInfo = false
 
-
 -- Create ESP text above players
 local function createTextESP(character, textColor)
     if character == LocalPlayer.Character then return end
@@ -207,13 +206,12 @@ local function createTextESP(character, textColor)
     label.BackgroundTransparency = 1
     label.TextColor3 = textColor
     label.Font = Enum.Font.GothamBold
-    label.TextSize = 14
+    label.TextSize = 16
     label.Text = character.Name
     label.Parent = billboard
 
     billboard.Parent = character
 end
-
 
 -- Create ESP with extra info (@username + HP)
 local function createExtraInfoESP(character)
@@ -237,7 +235,7 @@ local function createExtraInfoESP(character)
     label.BackgroundTransparency = 1
     label.TextColor3 = Color3.fromRGB(255, 255, 255)
     label.Font = Enum.Font.GothamBold
-    label.TextSize = 14
+    label.TextSize = 14 -- smaller by default
     label.Text = "@" .. player.Name .. " | HP: " .. math.floor(humanoid.Health)
     label.Parent = billboard
 
@@ -249,7 +247,6 @@ local function createExtraInfoESP(character)
 
     billboard.Parent = character
 end
-
 
 -- Aura highlights
 local function createAura(obj, color)
@@ -267,7 +264,6 @@ local function createAura(obj, color)
     h.Parent = obj
 end
 
-
 -- Handle aura conflicts between Aura & PlayerAura
 local function handleAuraConflict(obj)
     local aura = obj:FindFirstChild("Aura")
@@ -283,14 +279,12 @@ local function handleAuraConflict(obj)
     end
 end
 
-
 -- ESP updater loop
 task.spawn(function()
     while true do
         task.wait(0.5)
         local map = getMap()
 
-        -- Survivors
         local survivors = workspace.Players:FindFirstChild("Survivors")
         if survivors then
             for _, char in ipairs(survivors:GetChildren()) do
@@ -316,7 +310,6 @@ task.spawn(function()
             end
         end
 
-        -- Killers
         local killers = workspace.Players:FindFirstChild("Killers")
         if killers then
             for _, char in ipairs(killers:GetChildren()) do
@@ -342,7 +335,6 @@ task.spawn(function()
             end
         end
 
-        -- Map objects
         if map then
             for _, obj in ipairs(map:GetChildren()) do
                 if obj.Name == "Generator" and obj:FindFirstChild("Progress") then
@@ -375,7 +367,6 @@ task.spawn(function()
                 end
             end
 
-            -- Footprints
             for _, folder in ipairs(workspace.Map.Ingame:GetChildren()) do
                 if string.find(folder.Name, "Shadows") then
                     for _, shadow in ipairs(folder:GetChildren()) do
@@ -392,6 +383,54 @@ task.spawn(function()
     end
 end)
 
+-- Dynamic scaling with cutoff
+local lastUpdate = {}
+
+RunService.RenderStepped:Connect(function()
+    local cam = workspace.CurrentCamera
+    if not cam then return end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        local char = player.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local dist = (cam.CFrame.Position - hrp.Position).Magnitude
+            local main = char:FindFirstChild("ESPText")
+            local extra = char:FindFirstChild("ESPExtraInfo")
+
+            if dist > 700 then
+                if main then main.Enabled = false end
+                if extra then extra.Enabled = false end
+                lastUpdate[player] = dist
+                continue
+            else
+                if main then main.Enabled = true end
+                if extra then extra.Enabled = true end
+            end
+
+            local lastDist = lastUpdate[player] or 0
+            if math.abs(dist - lastDist) > 0.5 then
+                lastUpdate[player] = dist
+
+                local baseOffset = math.clamp(dist * 0.04, 2.8, 6)
+                local mainSize = math.clamp(18 - (dist * 0.07), 13, 18)
+                local extraSize = math.clamp(mainSize - 2, 11, 16)
+
+                if main then
+                    main.StudsOffset = Vector3.new(0, baseOffset + 0.7, 0)
+                    local label = main:FindFirstChildOfClass("TextLabel")
+                    if label then label.TextSize = mainSize end
+                end
+
+                if extra then
+                    extra.StudsOffset = Vector3.new(0, baseOffset, 0)
+                    local label = extra:FindFirstChildOfClass("TextLabel")
+                    if label then label.TextSize = extraSize end
+                end
+            end
+        end
+    end
+end)
 
 -- ESP Toggles
 ESPTab:CreateToggle({
@@ -441,7 +480,6 @@ ESPTab:CreateToggle({
     CurrentValue = false,
     Callback = function(s) ESPStates.Footprints = s end
 })
-
 
 --========================================================
 -- Fake Generator Detection
