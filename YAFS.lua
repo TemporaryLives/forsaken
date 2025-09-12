@@ -199,7 +199,7 @@ local function createTextESP(character, textColor)
     billboard.Name = "ESPText"
     billboard.Adornee = character.HumanoidRootPart
     billboard.Size = UDim2.new(0, 100, 0, 25)
-    billboard.StudsOffset = Vector3.new(0, 3.2, 0)
+    billboard.StudsOffset = Vector3.new(0, 4.2, 0)
     billboard.AlwaysOnTop = true
 
     local label = Instance.new("TextLabel")
