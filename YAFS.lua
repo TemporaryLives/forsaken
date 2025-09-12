@@ -86,7 +86,7 @@ end
 -- Generator Tab
 --========================================================
 
-local GeneratorTab = Window:CreateTab("Generator Tab", 75874406868304)
+local GeneratorTab = Window:CreateTab("Generator Tab", 96559240692119)
 local autoRepair = false
 local repairCooldown = 3.1
 local lastRepair = 0
