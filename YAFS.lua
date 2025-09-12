@@ -1,5 +1,5 @@
 --=====================================================================--
--- Yet Another Forsaken Script (Skidded, but expect it to be polished) --
+-- Yet Another Forsaken Script (Skidded, don't expect it to be polished) --
 --=====================================================================--
 
 --// Rayfield Setup
@@ -86,7 +86,7 @@ end
 -- Generator Tab
 --========================================================
 
-local GeneratorTab = Window:CreateTab("Generator Tab", 4483362458)
+local GeneratorTab = Window:CreateTab("Generator Tab", 75874406868304)
 local autoRepair = false
 local repairCooldown = 3.1
 local lastRepair = 0
