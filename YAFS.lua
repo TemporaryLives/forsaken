@@ -9,7 +9,6 @@ local Window = Rayfield:CreateWindow({
     Icon = "92999214922543",
     LoadingTitle = "Loading the script...",
     LoadingSubtitle = "💫",
-    LoadingIcon = "rbxassetid://92999214922543",
     ConfigurationSaving = {
         Enabled = false
     }
