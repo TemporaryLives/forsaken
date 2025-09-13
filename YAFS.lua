@@ -16,83 +16,77 @@ local Window = Rayfield:CreateWindow({
     }
 })
 
---// Services
+--// Core Services
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local StarterGui = game:GetService("StarterGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 
+-- Settings
+local autoRepair = false
+local repairCooldown = 6.2
+local lastRepair = 0
+local maxDist = 12 -- maximum distance to detect generator
 
---========================================================
--- Helpers
---========================================================
-
-local function destroyChildrenByName(obj, name)
-    for _, child in ipairs(obj:GetChildren()) do
-        if child.Name == name then
-            child:Destroy()
-        end
-    end
-end
-
-local function getMap()
-    return workspace:FindFirstChild("Map")
-       and workspace.Map:FindFirstChild("Ingame")
-       and workspace.Map.Ingame:FindFirstChild("Map")
-end
-
-local function getClosestGenerator(maxDist)
-    local map = getMap()
-    if not map then return end
-
-    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-
-    local closest, dist = nil, maxDist or 12
-    for _, obj in ipairs(map:GetChildren()) do
-        if obj.Name == "Generator" and obj:FindFirstChild("Remotes") then
-            if obj:FindFirstChild("Progress") and obj.Progress.Value < 100 then
-                local main = obj:FindFirstChild("Main")
-                if main and main:IsA("Part") then
-                    local d = (hrp.Position - main.Position).Magnitude
-                    if d < dist then
-                        closest, dist = obj, d
-                    end
-                end
-            end
-        end
-    end
-
-    return closest
-end
-
+-- Helper functions
 local function isRepairing()
     local char = LocalPlayer.Character
-    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-    if humanoid then
-        for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
-            if track.Animation and (
-                track.Animation.AnimationId == "rbxassetid://82691533602949" or
-                track.Animation.AnimationId == "rbxassetid://122604262087779" or
-                track.Animation.AnimationId == "rbxassetid://130355893361522"
-            ) then
-                return true
-            end
+    if not char then return false end
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return false end
+    for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
+        local animId = track.Animation and track.Animation.AnimationId
+        if animId == "rbxassetid://82691533602949" or
+           animId == "rbxassetid://122604262087779" or
+           animId == "rbxassetid://130355934640695" then
+            return true
         end
     end
     return false
 end
 
+local function notifyFake(gen)
+    Rayfield:Notify({
+        Title = "Fake Generator Detected!",
+        Content = "Generator '" .. gen.Name .. "' is fake. Skipping repair.",
+        Duration = 2
+    })
+end
 
---========================================================
--- Generator Tab
---========================================================
+local function getNearbyGenerators()
+    local candidates = {}
+    local map = game.Workspace:FindFirstChild("Map")
+    if not map or not map:FindFirstChild("Ingame") or not map.Ingame:FindFirstChild("Map") then return candidates end
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return candidates end
 
-local GeneratorTab = Window:CreateTab("Generator Tab", 96559240692119)
-local autoRepair = false
-local repairCooldown = 6.2
-local lastRepair = 0
+    for _, gen in ipairs(map.Ingame.Map:GetChildren()) do
+        if gen.Name ~= "FakeGenerator" and gen:FindFirstChild("Main") and gen.Main:FindFirstChild("Prompt") then
+            local d = (hrp.Position - gen.Main.Position).Magnitude
+            if d <= maxDist then
+                table.insert(candidates, gen)
+            end
+        end
+    end
+    return candidates
+end
+
+local function attemptRepair(gen)
+    if gen.Name == "FakeGenerator" then
+        notifyFake(gen)
+        return
+    end
+    if not gen:FindFirstChild("Remotes") then return end
+    local re = gen.Remotes:FindFirstChild("RE")
+    if re then
+        re:FireServer()
+        lastRepair = tick()
+    end
+end
+
+--// GUI
+local GeneratorTab = Window:CreateTab("Generator", 96559240692119)
 
 GeneratorTab:CreateToggle({
     Name = "Auto-Repair Generators",
@@ -126,41 +120,30 @@ GeneratorTab:CreateButton({
             })
             return
         end
-
-        local gen = getClosestGenerator(12)
-        if gen and isRepairing() then
-            local re = gen.Remotes:FindFirstChild("RE")
-            if re then
-                re:FireServer()
-                lastRepair = now
+        local gens = getNearbyGenerators()
+        for _, gen in ipairs(gens) do
+            if isRepairing() then
+                attemptRepair(gen)
             end
         end
     end
 })
 
+--// Auto-repair loop
 task.spawn(function()
     while true do
         task.wait(0.2)
         if autoRepair then
-            if isRepairing() then
-                local now = tick()
-                if now - lastRepair >= repairCooldown then
-                    local gen = getClosestGenerator(12)
-                    if gen and gen:FindFirstChild("Remotes") then
-                        local re = gen.Remotes:FindFirstChild("RE")
-                        if re then
-                            re:FireServer()
-                            lastRepair = now
-                        end
-                    end
+            local now = tick()
+            if now - lastRepair >= repairCooldown and isRepairing() then
+                local gens = getNearbyGenerators()
+                for _, gen in ipairs(gens) do
+                    attemptRepair(gen)
                 end
-            else
-                lastRepair = tick()
             end
         end
     end
 end)
-
 
 --========================================================
 -- ESP Tab
