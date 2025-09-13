@@ -6,8 +6,17 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+-- try Rayfield load safely
+local ok, Rayfield = pcall(function()
+    return loadstring(game:HttpGet("https://raw.githubusercontent.com/TemporaryLives/test/refs/heads/main/modifiedrayfield.lua"))()
+end)
 
+if not ok or not Rayfield then
+    warn("Rayfield failed to load. GUI will not work.")
+    return
+end
+
+-- Main window
 local Window = Rayfield:CreateWindow({
     Name = "Yet Another Forsaken Script",
     Icon = 92999214922543,
@@ -23,7 +32,7 @@ local ESPTab       = Window:CreateTab("ESP Tab", 114055269167425)
 local PlayerTab    = Window:CreateTab("Player Tab", 89251076279188)
 local MiscTab      = Window:CreateTab("Misc Tab", 72612560514066)
 
--- Generic helpers
+-- Helpers
 local function destroyChildrenByName(obj, name)
     if not obj then return end
     for _, child in ipairs(obj:GetChildren()) do
@@ -62,7 +71,15 @@ local function getClosestGenerator(maxDist)
     return closest, dist
 end
 
--- repair animation ids (ensure they match game anims)
+--========================================
+-- Generator Tab
+--========================================
+local autoRepair = false
+local repairCooldown = 6.2
+local lastRepair = 0
+local lastManual = 0
+
+-- repair animation ids
 local _REPAIR_ANIMS = {
     ["rbxassetid://82691533602949"]  = true,
     ["rbxassetid://122604262087779"] = true,
@@ -81,15 +98,6 @@ local function isRepairing()
     end
     return false
 end
-
---========================================
--- Generator Tab
---========================================
--- Uses GeneratorTab created in the setup block
-local autoRepair = false
-local repairCooldown = 6.2  -- used by auto-repair
-local lastRepair = 0        -- for auto-repair
-local lastManual = 0        -- for manual fire minimum of 2.4s
 
 GeneratorTab:CreateToggle({
     Name = "Auto-Repair Generators",
@@ -134,7 +142,7 @@ GeneratorTab:CreateButton({
                 lastManual = now
                 Rayfield:Notify({Title="Generator", Content="Manual repair fired ("..math.floor(dist).." studs).", Duration=1.4})
             else
-                Rayfield:Notify({Title="Generator", Content="Failed to fire manual repair: "..tostring(err), Duration=2.2})
+                Rayfield:Notify({Title="Generator", Content="Failed: "..tostring(err), Duration=2.2})
             end
         else
             Rayfield:Notify({Title="Generator", Content="Generator RE remote not found.", Duration=1.6})
@@ -142,14 +150,13 @@ GeneratorTab:CreateButton({
     end
 })
 
--- Auto-repair loop: only fires while player is actually playing the repair animation
 task.spawn(function()
     while true do
         task.wait(0.2)
         if autoRepair and isRepairing() then
             local now = tick()
             if now - lastRepair >= repairCooldown then
-                local gen, dist = getClosestGenerator(12)
+                local gen, _ = getClosestGenerator(12)
                 if gen and gen:FindFirstChild("Remotes") then
                     local re = gen.Remotes:FindFirstChild("RE")
                     if re then
@@ -159,12 +166,10 @@ task.spawn(function()
                 end
             end
         else
-            -- keep lastRepair fresh to avoid instant-fire when toggling on
             lastRepair = tick()
         end
     end
 end)
-
 --========================================
 -- ESP Tab (full)
 --========================================
@@ -444,9 +449,6 @@ ESPTab:CreateToggle({ Name = "Show Digital Footprints", CurrentValue = false, Ca
 --========================================
 -- Player Tab
 --========================================
--- Uses PlayerTab from setup block
-
--- Try to require Sprinting safely at use time
 local function safeRequireSprinting()
     local ok, mod = pcall(function()
         return require(ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Character"):WaitForChild("Game"):WaitForChild("Sprinting"))
@@ -469,7 +471,6 @@ local function applyStaminaSettings()
         m.SprintSpeed = speed
         m.StaminaLossDisabled = false
     else
-        -- restore defaults (or leave as-is)
         m.StaminaGain = 20
         m.StaminaLoss = 10
         m.SprintSpeed = 24
@@ -480,18 +481,16 @@ PlayerTab:CreateToggle({
     Name = "Infinite Stamina",
     CurrentValue = false,
     Callback = function(state)
+        local m = safeRequireSprinting()
+        if not m then
+            Rayfield:Notify({Title="Player", Content="Sprinting module not ready.", Duration=1.5})
+            return
+        end
         if state then
-            local m = safeRequireSprinting()
-            if m then
-                m.StaminaLossDisabled = true
-                m.SprintSpeed = 24
-            else
-                Rayfield:Notify({Title="Player", Content="Sprinting module not ready.", Duration=1.5})
-            end
+            m.StaminaLossDisabled = true
+            m.SprintSpeed = 24
         else
-            -- disabling infinite will not automatically enable custom; user can toggle custom
-            local m = safeRequireSprinting()
-            if m then m.StaminaLossDisabled = false end
+            m.StaminaLossDisabled = false
         end
     end
 })
@@ -513,169 +512,59 @@ PlayerTab:CreateInput({ Name = "Stamina Loss", PlaceholderText = tostring(loss),
 
 PlayerTab:CreateInput({ Name = "Sprint Speed", PlaceholderText = tostring(speed), RemoveTextAfterFocusLost = false,
     Callback = function(v) local n = tonumber(v) if n then speed = n; if custom then applyStaminaSettings() end end })
-  
-  --========================================
+
+--========================================
 -- Misc Tab
 --========================================
--- Uses MiscTab from setup block
 
-local RoundTimer
-pcall(function() RoundTimer = LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("RoundTimer", 2).Main end)
-
--- Disable Privated Stats (attempt for all players — client-side only)
+-- Disable Privated Stats (all players, client-side only)
 MiscTab:CreateButton({
     Name = "Disable Privated Stats",
     Callback = function()
         for _, plr in ipairs(Players:GetPlayers()) do
-            local privacyFolder = plr:FindFirstChild("PlayerData")
+            local priv = plr:FindFirstChild("PlayerData")
                 and plr.PlayerData:FindFirstChild("Settings")
                 and plr.PlayerData.Settings:FindFirstChild("Privacy")
-            if privacyFolder then
-                for _, child in ipairs(privacyFolder:GetChildren()) do
-                    pcall(function() child:Destroy() end)
+            if priv then
+                for _, child in ipairs(priv:GetChildren()) do
+                    child:Destroy()
                 end
             end
         end
-        Rayfield:Notify({ Title = "Misc", Content = "Who needed to hide their stats anyways.", Duration = 3, Image = 4483362458 })
+        Rayfield:Notify({
+            Title = "Disable Privated Stats",
+            Content = "Who needed to hide their stats anyways.",
+            Duration = 6.5,
+            Image = 4483362458
+        })
     end
 })
 
--- Round Timer slider + reset
-MiscTab:CreateSlider({
-    Name = "Round Timer X Position",
-    Range = {0.2, 0.8},
-    Increment = 0.01,
-    CurrentValue = 0.5,
-    Callback = function(val)
-        if not RoundTimer then
-            local ok, rt = pcall(function() return LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("RoundTimer", 2).Main end)
-            RoundTimer = ok and rt or nil
-            if not RoundTimer then Rayfield:Notify({Title="Misc", Content="RoundTimer not found.", Duration=1.6}); return end
+-- Round Timer
+local RoundTimer = ReplicatedStorage:WaitForChild("RoundTimer", 10)
+if RoundTimer then
+    MiscTab:CreateSlider({
+        Name = "Set Round Timer",
+        Range = {0, 900},
+        Increment = 5,
+        CurrentValue = RoundTimer.Value,
+        Callback = function(val)
+            RoundTimer.Value = val
         end
-        RoundTimer.Position = UDim2.new(val, 0, RoundTimer.Position.Y.Scale, RoundTimer.Position.Y.Offset)
-    end
-})
+    })
 
-MiscTab:CreateButton({ Name = "Reset Round Timer Position", Callback = function()
-    if RoundTimer then RoundTimer.Position = UDim2.new(0.5, 0, -0.0175, 0)
-    else Rayfield:Notify({Title="Misc", Content="RoundTimer not found.", Duration=1.6}) end
-end })
-
--- Block Subspaced Effects
-MiscTab:CreateToggle({
-    Name = "Block Subspaced Effects",
-    CurrentValue = false,
-    Callback = function(state)
-        local ok, sub = pcall(function() return ReplicatedStorage.Modules.StatusEffects.SurvivorExclusive end)
-        if not ok or not sub then Rayfield:Notify({Title="Misc", Content="StatusEffects missing.", Duration=1.6}); return end
-        local subspace = sub:FindFirstChild("Subspaced")
-        local subzero = sub:FindFirstChild("Subzerospaced")
-        if state then if subspace then subspace.Name = "Subzerospaced" end
-        else if subzero then subzero.Name = "Subspaced" end end
-        Rayfield:Notify({ Title = "Misc", Content = state and "Subspaced blocked!" or "Subspaced restored!", Duration = 2 })
-    end
-})
-
--- c00lgui Tracker (fixed teleport detection; tracks survivors)
-local trackerEnabled = false
-local cooldownTime = 30
-local lastTrigger = {}      -- [player] = lastTick
-local activeC00lParts = {}  -- [player] = c00l instance
-local trackedModels = {}    -- [model] = true
-
-local function notifyMisc(title, content)
-    Rayfield:Notify({Title = title, Content = content, Duration = 6.5, Image = 4483362458})
+    MiscTab:CreateButton({
+        Name = "Reset Round Timer",
+        Callback = function()
+            RoundTimer.Value = 0
+            Rayfield:Notify({
+                Title = "Round Timer",
+                Content = "Round timer reset.",
+                Duration = 6.5,
+                Image = 4483362458
+            })
+        end
+    })
 end
 
-local function setupC00lForPlayer(player, c00l)
-    if not player or not c00l or not trackerEnabled then return end
-    if lastTrigger[player] and (tick() - lastTrigger[player]) < cooldownTime then return end
-    lastTrigger[player] = tick()
-    notifyMisc("c00lgui Tracker", "@"..player.Name.." is using c00lgui.")
-    activeC00lParts[player] = c00l
-end
-
-local function trackCharacterModel(model)
-    if not model or trackedModels[model] then return end
-    trackedModels[model] = true
-
-    local player = Players:GetPlayerFromCharacter(model)
-    if not player then return end
-
-    -- existing c00lgui
-    local existing = model:FindFirstChild("c00lgui")
-    if existing and trackerEnabled then setupC00lForPlayer(player, existing) end
-
-    -- watch for new
-    model.ChildAdded:Connect(function(ch)
-        if not trackerEnabled then return end
-        if ch and ch.Name == "c00lgui" then
-            setupC00lForPlayer(player, ch)
-        end
-    end)
-end
-
--- Heartbeat: watch active parts and detect removal/teleport (improved)
-RunService.Heartbeat:Connect(function()
-    if not trackerEnabled then return end
-    local map = getMap()
-    local spawns = {}
-    if map and map:FindFirstChild("SpawnPoints") and map.SpawnPoints:FindFirstChild("Survivors") then
-        spawns = map.SpawnPoints.Survivors:GetChildren()
-    end
-
-    for player, c00l in pairs(activeC00lParts) do
-        local model = player.Character
-        if not model or not c00l or not c00l:IsDescendantOf(model) then
-            local teleported = false
-            local hrp = model and model:FindFirstChild("HumanoidRootPart")
-            if hrp and #spawns > 0 then
-                for _, s in ipairs(spawns) do
-                    if s.Name == "SurvivorSpawn" and (hrp.Position - s.Position).Magnitude <= 25 then
-                        teleported = true
-                        break
-                    end
-                end
-            end
-
-            if teleported then
-                notifyMisc("c00lgui Tracker", "@"..player.Name.." teleported.")
-            else
-                notifyMisc("c00lgui Tracker", "@"..player.Name.."'s c00lgui cancelled.")
-            end
-
-            activeC00lParts[player] = nil
-        end
-    end
-end)
-
--- Toggle to enable/disable tracker, binds tracking for existing/future survivors
-MiscTab:CreateToggle({
-    Name = "c00lgui Tracker",
-    CurrentValue = false,
-    Callback = function(state)
-        trackerEnabled = state
-        if trackerEnabled then
-            trackedModels = {}
-            local playersRoot = workspace:FindFirstChild("Players")
-            if playersRoot then
-                local surv = playersRoot:FindFirstChild("Survivors")
-                if surv then
-                    for _, m in ipairs(surv:GetChildren()) do
-                        trackCharacterModel(m)
-                    end
-                    surv.ChildAdded:Connect(function(m) trackCharacterModel(m) end)
-                end
-            end
-            -- also hook player join to bind later characters
-            Players.PlayerAdded:Connect(function(plr)
-                plr.CharacterAdded:Connect(function(ch) trackCharacterModel(ch) end)
-            end)
-        else
-            -- clear state
-            activeC00lParts = {}
-            lastTrigger = {}
-            trackedModels = {}
-        end
-    end
-})
+-- Block Subsp
