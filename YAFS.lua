@@ -5,8 +5,6 @@
 --// Rayfield Setup
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
-Rayfield.settingsTable.General.rayfieldprompts.Value = false
-
 local Window = Rayfield:CreateWindow({
     Name = "Yet Another Forsaken Script",
     Icon = 92999214922543,
@@ -17,6 +15,11 @@ local Window = Rayfield:CreateWindow({
         Enabled = false
     }
 })
+
+-- Disable Rayfield prompts safely
+if Rayfield.settingsTable and Rayfield.settingsTable.General then
+    Rayfield.settingsTable.General.rayfieldprompts.Value = false
+end
 
 --// Services
 local RunService = game:GetService("RunService")
