@@ -1,13 +1,11 @@
---=====================================================================--
 -- Yet Another Forsaken Script (Skidded, don't expect it to be polished) --
--- Script link: loadstring(game:HttpGet(https://raw.githubusercontent.com/TemporaryLives/forsaken/refs/heads/main/YAFS.lua))()
---=====================================================================--
+-- Script link: loadstring(game:HttpGet(https://raw.githubusercontent.com/TemporaryLives/forsaken/refs/heads/main/YAFS.lua))() --
+
 
 --// Rayfield Setup
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 local Window = Rayfield:CreateWindow({
     Name = "Yet Another Forsaken Script",
-    Icon = "92999214922543",
     LoadingTitle = "Loading the script...",
     LoadingSubtitle = "💫",
     ConfigurationSaving = {
