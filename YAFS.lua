@@ -1,107 +1,95 @@
 --=====================================================================--
--- Yet Another Forsaken Script (Skidded, don't expect it to be good.      --
+-- Yet Another Forsaken Script (Skidded, don't expect it to be polished) --
 --=====================================================================--
 
 --// Rayfield Setup
-local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/TemporaryLives/test/refs/heads/main/modifiedrayfield.lua"))()
-
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 local Window = Rayfield:CreateWindow({
     Name = "Yet Another Forsaken Script",
-    Icon = 92999214922543,
     LoadingTitle = "Loading the script...",
     LoadingSubtitle = "💫",
-    ShowText = "Menu",
     ConfigurationSaving = {
         Enabled = false
     }
 })
 
---// Core Services
+--// Services
+local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+local StarterGui = game:GetService("StarterGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
 
 --========================================================
--- Map Helper
+-- Helpers
 --========================================================
-local function getMap()
-    local mapFolder = workspace:FindFirstChild("Map")
-    if not mapFolder then return nil end
-    local ingame = mapFolder:FindFirstChild("Ingame")
-    if not ingame then return nil end
-    return ingame:FindFirstChild("Map")
+
+local function destroyChildrenByName(obj, name)
+    for _, child in ipairs(obj:GetChildren()) do
+        if child.Name == name then
+            child:Destroy()
+        end
+    end
 end
 
---========================================================
--- Generator Logic
---========================================================
+local function getMap()
+    return workspace:FindFirstChild("Map")
+       and workspace.Map:FindFirstChild("Ingame")
+       and workspace.Map.Ingame:FindFirstChild("Map")
+end
 
-local autoRepair = false
-local repairCooldown = 6.2
-local lastRepair = 0
-local maxDist = 12 -- studs
+local function getClosestGenerator(maxDist)
+    local map = getMap()
+    if not map then return end
 
--- Detect if player is in repair animation
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local closest, dist = nil, maxDist or 12
+    for _, obj in ipairs(map:GetChildren()) do
+        if obj.Name == "Generator" and obj:FindFirstChild("Remotes") then
+            if obj:FindFirstChild("Progress") and obj.Progress.Value < 100 then
+                local main = obj:FindFirstChild("Main")
+                if main and main:IsA("Part") then
+                    local d = (hrp.Position - main.Position).Magnitude
+                    if d < dist then
+                        closest, dist = obj, d
+                    end
+                end
+            end
+        end
+    end
+
+    return closest
+end
+
 local function isRepairing()
     local char = LocalPlayer.Character
-    if not char then return false end
-    local humanoid = char:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return false end
-
-    for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
-        local animId = track.Animation and track.Animation.AnimationId
-        if animId == "rbxassetid://82691533602949" or -- Center
-           animId == "rbxassetid://122604262087779" or -- Left
-           animId == "rbxassetid://130355934640695" then -- Right
-            return true
+    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
+            if track.Animation and (
+                track.Animation.AnimationId == "rbxassetid://82691533602949" or
+                track.Animation.AnimationId == "rbxassetid://122604262087779" or
+                track.Animation.AnimationId == "rbxassetid://130355893361522"
+            ) then
+                return true
+            end
         end
     end
     return false
 end
 
--- Collect nearby generators
-local function getNearbyGenerators()
-    local candidates = {}
-    local map = getMap()
-    if not map then return candidates end
-    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return candidates end
-
-    for _, gen in ipairs(map:GetChildren()) do
-        if gen.Name ~= "FakeGenerator" and gen:FindFirstChild("Main") and gen.Main:FindFirstChild("Prompt") then
-            local d = (hrp.Position - gen.Main.Position).Magnitude
-            if d <= maxDist then
-                table.insert(candidates, gen)
-            end
-        end
-    end
-    return candidates
-end
-
--- Fire the generator remote
-local function attemptRepair(gen)
-    if gen.Name == "FakeGenerator" then
-        Rayfield:Notify({
-            Title = "Fake Generator Detected!",
-            Content = "Generator '" .. gen.Name .. "' is fake. Skipping repair.",
-            Duration = 2
-        })
-        return
-    end
-
-    if gen:FindFirstChild("Remotes") then
-        local re = gen.Remotes:FindFirstChild("RE")
-        if re then
-            re:FireServer()
-            lastRepair = tick()
-        end
-    end
-end
 
 --========================================================
--- Generator Tab UI
+-- Generator Tab
 --========================================================
-local GeneratorTab = Window:CreateTab("Generator", 96559240692119)
+
+local GeneratorTab = Window:CreateTab("Generator Tab", 96559240692119)
+local autoRepair = false
+local repairCooldown = 6.2
+local lastRepair = 0
 
 GeneratorTab:CreateToggle({
     Name = "Auto-Repair Generators",
@@ -135,32 +123,42 @@ GeneratorTab:CreateButton({
             })
             return
         end
-        local gens = getNearbyGenerators()
-        for _, gen in ipairs(gens) do
-            if isRepairing() then
-                attemptRepair(gen)
+
+        local gen = getClosestGenerator(12)
+        if gen and isRepairing() then
+            local re = gen.Remotes:FindFirstChild("RE")
+            if re then
+                re:FireServer()
+                lastRepair = now
             end
         end
     end
 })
 
---========================================================
--- Auto-Repair Loop
---========================================================
 task.spawn(function()
     while true do
         task.wait(0.2)
         if autoRepair then
-            local now = tick()
-            if now - lastRepair >= repairCooldown and isRepairing() then
-                local gens = getNearbyGenerators()
-                for _, gen in ipairs(gens) do
-                    attemptRepair(gen)
+            if isRepairing() then
+                local now = tick()
+                if now - lastRepair >= repairCooldown then
+                    local gen = getClosestGenerator(12)
+                    if gen and gen:FindFirstChild("Remotes") then
+                        local re = gen.Remotes:FindFirstChild("RE")
+                        if re then
+                            re:FireServer()
+                            lastRepair = now
+                        end
+                    end
                 end
+            else
+                lastRepair = tick()
             end
         end
     end
 end)
+
+
 --========================================================
 -- ESP Tab
 --========================================================
@@ -423,6 +421,7 @@ ESPTab:CreateToggle({ Name = "Show Deployables", CurrentValue = false, Callback 
 ESPTab:CreateToggle({ Name = "Show Generators (<100)", CurrentValue = false, Callback = function(s) ESPStates.Generators = s end })
 ESPTab:CreateToggle({ Name = "Show Fake Generators", CurrentValue = false, Callback = function(s) ESPStates.FakeGenerators = s end })
 ESPTab:CreateToggle({ Name = "Show Digital Footprints", CurrentValue = false, Callback = function(s) ESPStates.Footprints = s end })
+
 
 
 --========================================================
