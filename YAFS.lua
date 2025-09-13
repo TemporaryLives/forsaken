@@ -3,7 +3,7 @@
 --=====================================================================--
 
 --// Rayfield Setup
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/TemporaryLives/test/refs/heads/main/modifiedrayfield.lua"))()
 
 local Window = Rayfield:CreateWindow({
     Name = "Yet Another Forsaken Script",
@@ -15,13 +15,6 @@ local Window = Rayfield:CreateWindow({
         Enabled = false
     }
 })
-
--- Ensure General table exists
-Rayfield.settingsTable.General = Rayfield.settingsTable.General or {}
-Rayfield.settingsTable.General.rayfieldprompts = Rayfield.settingsTable.General.rayfieldprompts or {Value = false}
-
--- Now set it safely
-Rayfield.settingsTable.General.rayfieldprompts.Value = false
 
 --// Services
 local RunService = game:GetService("RunService")
