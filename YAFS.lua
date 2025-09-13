@@ -6,8 +6,10 @@
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 local Window = Rayfield:CreateWindow({
     Name = "Yet Another Forsaken Script",
+    Icon = 92999214922543,
     LoadingTitle = "Loading the script...",
     LoadingSubtitle = "💫",
+    ShowText = "Menu",
     ConfigurationSaving = {
         Enabled = false
     }
@@ -160,7 +162,7 @@ end)
 
 
 --========================================================
--- ESP Tab (Polished & Stable)
+-- ESP Tab
 --========================================================
 
 local ESPTab = Window:CreateTab("ESP Tab", 114055269167425)
