@@ -1,5 +1,6 @@
 --=====================================================================--
 -- Yet Another Forsaken Script (Skidded, don't expect it to be polished) --
+-- Script link: loadstring(game:HttpGet(https://raw.githubusercontent.com/TemporaryLives/forsaken/refs/heads/main/YAFS.lua))()
 --=====================================================================--
 
 --// Rayfield Setup
