@@ -16,10 +16,12 @@ local Window = Rayfield:CreateWindow({
     }
 })
 
--- Disable Rayfield prompts safely
-if Rayfield.settingsTable and Rayfield.settingsTable.General then
-    Rayfield.settingsTable.General.rayfieldprompts.Value = false
-end
+-- Ensure General table exists
+Rayfield.settingsTable.General = Rayfield.settingsTable.General or {}
+Rayfield.settingsTable.General.rayfieldprompts = Rayfield.settingsTable.General.rayfieldprompts or {Value = false}
+
+-- Now set it safely
+Rayfield.settingsTable.General.rayfieldprompts.Value = false
 
 --// Services
 local RunService = game:GetService("RunService")
