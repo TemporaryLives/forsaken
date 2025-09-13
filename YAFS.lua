@@ -6,8 +6,10 @@
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 local Window = Rayfield:CreateWindow({
     Name = "Yet Another Forsaken Script",
+    Icon = "92999214922543",
     LoadingTitle = "Loading the script...",
     LoadingSubtitle = "💫",
+    LoadingIcon = "rbxassetid://92999214922543"
     ConfigurationSaving = {
         Enabled = false
     }
