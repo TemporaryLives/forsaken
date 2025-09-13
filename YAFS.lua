@@ -174,7 +174,7 @@ local Colors = {
     Deployables    = Color3.fromRGB(191,255,191),
     Generator      = Color3.fromRGB(255,255,255),
     FakeGenerator  = Color3.fromRGB(128,0,128),
-    Footprints     = Color3.fromRGB(255, 0, 0)
+    Footprints     = Color3.fromRGB(255,0,0)
 }
 
 local ESPStates = {
@@ -189,6 +189,7 @@ local ESPStates = {
 
 local ESPExtraInfo = false
 
+-- Helper to destroy specific children
 local function destroyChildrenByName(obj, name)
     for _, child in ipairs(obj:GetChildren()) do
         if child.Name == name then
@@ -197,7 +198,7 @@ local function destroyChildrenByName(obj, name)
     end
 end
 
--- Remove ESP & Aura
+-- Remove ESP & Aura from a character
 local function removeESP(char)
     destroyChildrenByName(char, "ESPGui")
     destroyChildrenByName(char, "Aura")
@@ -216,17 +217,37 @@ local function createAura(obj, color)
     h.Parent = obj
 end
 
+-- Return all valid player characters (Survivors + Killers) excluding LocalPlayer
+local function getAllValidPlayers()
+    local result = {}
+    local survivorsFolder = workspace.Players:FindFirstChild("Survivors")
+    local killersFolder = workspace.Players:FindFirstChild("Killers")
+    for _, folder in ipairs({survivorsFolder, killersFolder}) do
+        if folder then
+            for _, char in ipairs(folder:GetChildren()) do
+                if char ~= LocalPlayer.Character then
+                    table.insert(result, char)
+                end
+            end
+        end
+    end
+    return result
+end
+
 -- Create Player ESP with UIListLayout
 local function createESP(character, textColor)
-    if character == LocalPlayer.Character then return end
-    if character:FindFirstChild("ESPGui") then return end
+    if character:FindFirstChild("ESPGui") then
+        destroyChildrenByName(character, "ESPGui") -- refresh ESP
+    end
+
     local hrp = character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not hrp or not humanoid then return end
 
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "ESPGui"
     billboard.Adornee = hrp
-    billboard.Size = UDim2.new(0, 180, 0, 35) -- slightly smaller for tighter spacing
+    billboard.Size = UDim2.new(0, 180, 0, 28) -- smaller height for tighter spacing
     billboard.AlwaysOnTop = true
     billboard.StudsOffset = Vector3.new(0, 4.5, 0)
 
@@ -234,12 +255,12 @@ local function createESP(character, textColor)
     layout.FillDirection = Enum.FillDirection.Vertical
     layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Padding = UDim.new(0, 1) -- smaller padding
+    layout.Padding = UDim.new(0, 1) -- tight spacing
     layout.Parent = billboard
 
-    -- Main Text
+    -- Main Name Label
     local mainLabel = Instance.new("TextLabel")
-    mainLabel.Size = UDim2.new(1, 0, 0, 20)
+    mainLabel.Size = UDim2.new(1, 0, 0, 18)
     mainLabel.BackgroundTransparency = 1
     mainLabel.TextColor3 = textColor
     mainLabel.Font = Enum.Font.GothamBold
@@ -247,13 +268,12 @@ local function createESP(character, textColor)
     mainLabel.Text = character.Name
     mainLabel.Parent = billboard
 
-    -- Extra Info
+    -- Extra Info (@username + HP)
     if ESPExtraInfo then
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
         local player = Players:GetPlayerFromCharacter(character)
-        if humanoid and player then
+        if player then
             local extraLabel = Instance.new("TextLabel")
-            extraLabel.Size = UDim2.new(1, 0, 0, 18)
+            extraLabel.Size = UDim2.new(1, 0, 0, 16)
             extraLabel.BackgroundTransparency = 1
             extraLabel.TextColor3 = Color3.fromRGB(255,255,255)
             extraLabel.Font = Enum.Font.GothamBold
@@ -272,7 +292,7 @@ local function createESP(character, textColor)
     billboard.Parent = character
 end
 
--- Update non-player object highlights
+-- Update highlights for map objects
 local function updateObjectHighlights()
     local map = getMap()
     if not map then return end
@@ -330,29 +350,24 @@ task.spawn(function()
         trackRagdolls()
         updateObjectHighlights()
 
-        -- Players
-        for _, player in ipairs(Players:GetPlayers()) do
-            local char = player.Character
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
-            local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-            if char and hrp and humanoid then
-                if humanoid.Health <= 0 then
-                    removeESP(char)
+        for _, char in ipairs(getAllValidPlayers()) do
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                local color = workspace.Players.Killers:FindFirstChild(char.Name) and Colors.KillerText or Colors.SurvivorText
+                if ESPStates.Text then
+                    createESP(char, color)
                 else
-                    if ESPStates.Text then
-                        local color = (workspace.Players:FindFirstChild("Killers") and workspace.Players.Killers:FindFirstChild(char.Name)) and Colors.KillerText or Colors.SurvivorText
-                        createESP(char, color)
-                    else
-                        removeESP(char)
-                    end
-
-                    if ESPStates.AuraPlayers then
-                        local auraColor = (workspace.Players:FindFirstChild("Killers") and workspace.Players.Killers:FindFirstChild(char.Name)) and Colors.KillerAura or Colors.SurvivorAura
-                        createAura(char, auraColor)
-                    else
-                        destroyChildrenByName(char, "Aura")
-                    end
+                    removeESP(char)
                 end
+
+                if ESPStates.AuraPlayers then
+                    local auraColor = workspace.Players.Killers:FindFirstChild(char.Name) and Colors.KillerAura or Colors.SurvivorAura
+                    createAura(char, auraColor)
+                else
+                    destroyChildrenByName(char, "Aura")
+                end
+            else
+                removeESP(char)
             end
         end
     end
@@ -362,28 +377,18 @@ end)
 RunService.RenderStepped:Connect(function()
     local cam = workspace.CurrentCamera
     if not cam then return end
-    trackRagdolls()
 
-    for _, player in ipairs(Players:GetPlayers()) do
-        local char = player.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    for _, char in ipairs(getAllValidPlayers()) do
+        local hrp = char:FindFirstChild("HumanoidRootPart")
         if hrp then
             local dist = (cam.CFrame.Position - hrp.Position).Magnitude
             local gui = char:FindFirstChild("ESPGui")
             if gui then
-                if dist > 700 then
-                    gui.Enabled = false
-                else
-                    gui.Enabled = true
-                    for _, label in ipairs(gui:GetChildren()) do
-                        if label:IsA("TextLabel") then
-                            local scale = math.clamp(18 - (dist * 0.02), 13, 18)
-                            if label.TextSize > 14 then
-                                label.TextSize = scale
-                            else
-                                label.TextSize = math.clamp(scale - 2, 11, 14)
-                            end
-                        end
+                gui.Enabled = dist <= 700
+                for _, label in ipairs(gui:GetChildren()) do
+                    if label:IsA("TextLabel") then
+                        local scale = math.clamp(18 - (dist * 0.02), 13, 18)
+                        label.TextSize = label.TextSize > 14 and scale or math.clamp(scale - 2, 11, 14)
                     end
                 end
             end
@@ -393,11 +398,27 @@ end)
 
 -- ESP Toggles
 ESPTab:CreateToggle({ Name = "Show ESP", CurrentValue = false, Callback = function(s) ESPStates.Text = s end })
-ESPTab:CreateToggle({ Name = "Show Extra ESP Info", CurrentValue = false, Callback = function(s) ESPExtraInfo = s end })
-ESPTab:CreateToggle({ Name = "Highlight Players", CurrentValue = false, Callback = function(s) ESPStates.AuraPlayers = s end })
+ESPTab:CreateToggle({ Name = "Show Extra ESP Info", CurrentValue = false, Callback = function(s)
+    ESPExtraInfo = s
+    -- refresh all ESP to apply new extra info
+    for _, char in ipairs(getAllValidPlayers()) do
+        destroyChildrenByName(char, "ESPGui")
+    end
+end })
+ESPTab:CreateToggle({ Name = "Highlight Players", CurrentValue = false, Callback = function(s)
+    ESPStates.AuraPlayers = s
+    for _, char in ipairs(getAllValidPlayers()) do
+        if s then
+            local auraColor = workspace.Players.Killers:FindFirstChild(char.Name) and Colors.KillerAura or Colors.SurvivorAura
+            createAura(char, auraColor)
+        else
+            destroyChildrenByName(char, "Aura")
+        end
+    end
+end })
 ESPTab:CreateToggle({ Name = "Show Consumables", CurrentValue = false, Callback = function(s) ESPStates.Consumables = s end })
 ESPTab:CreateToggle({ Name = "Show Deployables", CurrentValue = false, Callback = function(s) ESPStates.Deployables = s end })
-ESPTab:CreateToggle({ Name = "Show Generators (<100)", CurrentValue = false, Callback = function(s) ESPStates.Generators = s end })
+ESPTab:CreateToggle({ Name = "Show Generators", CurrentValue = false, Callback = function(s) ESPStates.Generators = s end })
 ESPTab:CreateToggle({ Name = "Show Fake Generators", CurrentValue = false, Callback = function(s) ESPStates.FakeGenerators = s end })
 ESPTab:CreateToggle({ Name = "Show Digital Footprints", CurrentValue = false, Callback = function(s) ESPStates.Footprints = s end })
 
@@ -582,22 +603,4 @@ RunService.Heartbeat:Connect(function()
             end
             if teleported then notify("c00lgui Tracker","@"..player.Name.." teleported.")
             else notify("c00lgui Tracker","@"..player.Name.."'s c00lgui cancelled.") end
-            activeC00lParts[player]=nil
-        end
-    end
-end)
-
-MiscTab:CreateToggle({
-    Name="c00lgui Tracker",
-    CurrentValue=false,
-    Callback=function(s)
-        trackerEnabled=s
-        if trackerEnabled then
-            local surv=workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")
-            if surv then
-                for _,m in ipairs(surv:GetChildren()) do if m.Name=="007n7" then trackPlayer(m) end end
-                surv.ChildAdded:Connect(function(m) if m.Name=="007n7" then trackPlayer(m) end end)
-            end
-        end
-    end
-})
+            activeC00lParts[playe
