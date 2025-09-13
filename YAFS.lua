@@ -446,6 +446,35 @@ local MiscTab = Window:CreateTab("Misc Tab", 72612560514066)
 
 local RoundTimer = LocalPlayer.PlayerGui:WaitForChild("RoundTimer").Main
 
+-- Disable Privated Stats button
+MiscTab:CreateButton({
+    Name = "Disable Privated Stats",
+    Callback = function()
+        local privacyFolder = Players.LocalPlayer:FindFirstChild("PlayerData") 
+            and Players.LocalPlayer.PlayerData:FindFirstChild("Settings") 
+            and Players.LocalPlayer.PlayerData.Settings:FindFirstChild("Privacy")
+
+        if privacyFolder then
+            for _, child in ipairs(privacyFolder:GetChildren()) do
+                child:Destroy()
+            end
+            Rayfield:Notify({
+                Title = "Misc",
+                Content = "Who needed to hide their stats anyways.",
+                Duration = 3,
+                Image = 4483362458
+            })
+        else
+            Rayfield:Notify({
+                Title = "Misc",
+                Content = "Privacy folder not found.",
+                Duration = 3,
+                Image = 4483362458
+            })
+        end
+    end
+})
+
 MiscTab:CreateSlider({
     Name = "Round Timer X Position",
     Range = {0.2, 0.8},
