@@ -4,6 +4,9 @@
 
 --// Rayfield Setup
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+
+Rayfield.settingsTable.General.rayfieldprompts.Value = false
+
 local Window = Rayfield:CreateWindow({
     Name = "Yet Another Forsaken Script",
     Icon = 92999214922543,
