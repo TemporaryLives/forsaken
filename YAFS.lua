@@ -1,5 +1,6 @@
+--=====================================================================--
 -- Yet Another Forsaken Script (Skidded, don't expect it to be polished) --
-
+--=====================================================================--
 
 --// Rayfield Setup
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
@@ -159,7 +160,7 @@ end)
 
 
 --========================================================
--- ESP Tab
+-- ESP Tab (Polished & Stable)
 --========================================================
 
 local ESPTab = Window:CreateTab("ESP Tab", 114055269167425)
@@ -417,7 +418,7 @@ ESPTab:CreateToggle({ Name = "Highlight Players", CurrentValue = false, Callback
 end })
 ESPTab:CreateToggle({ Name = "Show Consumables", CurrentValue = false, Callback = function(s) ESPStates.Consumables = s end })
 ESPTab:CreateToggle({ Name = "Show Deployables", CurrentValue = false, Callback = function(s) ESPStates.Deployables = s end })
-ESPTab:CreateToggle({ Name = "Show Generators", CurrentValue = false, Callback = function(s) ESPStates.Generators = s end })
+ESPTab:CreateToggle({ Name = "Show Generators (<100)", CurrentValue = false, Callback = function(s) ESPStates.Generators = s end })
 ESPTab:CreateToggle({ Name = "Show Fake Generators", CurrentValue = false, Callback = function(s) ESPStates.FakeGenerators = s end })
 ESPTab:CreateToggle({ Name = "Show Digital Footprints", CurrentValue = false, Callback = function(s) ESPStates.Footprints = s end })
 
@@ -602,4 +603,22 @@ RunService.Heartbeat:Connect(function()
             end
             if teleported then notify("c00lgui Tracker","@"..player.Name.." teleported.")
             else notify("c00lgui Tracker","@"..player.Name.."'s c00lgui cancelled.") end
-            activeC00lParts[playe
+            activeC00lParts[player]=nil
+        end
+    end
+end)
+
+MiscTab:CreateToggle({
+    Name="c00lgui Tracker",
+    CurrentValue=false,
+    Callback=function(s)
+        trackerEnabled=s
+        if trackerEnabled then
+            local surv=workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")
+            if surv then
+                for _,m in ipairs(surv:GetChildren()) do if m.Name=="007n7" then trackPlayer(m) end end
+                surv.ChildAdded:Connect(function(m) if m.Name=="007n7" then trackPlayer(m) end end)
+            end
+        end
+    end
+})
