@@ -1,5 +1,5 @@
 --=====================================================================--
--- Yet Another Forsaken Script (Skidded, don't expect it to be polished) --
+-- Yet Another Forsaken Script (Skidded, don't expect it to be good.      --
 --=====================================================================--
 
 --// Rayfield Setup
@@ -17,51 +17,57 @@ local Window = Rayfield:CreateWindow({
 })
 
 --// Core Services
-local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-local StarterGui = game:GetService("StarterGui")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- Settings
+--========================================================
+-- Map Helper
+--========================================================
+local function getMap()
+    local mapFolder = workspace:FindFirstChild("Map")
+    if not mapFolder then return nil end
+    local ingame = mapFolder:FindFirstChild("Ingame")
+    if not ingame then return nil end
+    return ingame:FindFirstChild("Map")
+end
+
+--========================================================
+-- Generator Logic
+--========================================================
+
 local autoRepair = false
 local repairCooldown = 6.2
 local lastRepair = 0
-local maxDist = 12 -- maximum distance to detect generator
+local maxDist = 12 -- studs
 
--- Helper functions
+-- Detect if player is in repair animation
 local function isRepairing()
     local char = LocalPlayer.Character
     if not char then return false end
     local humanoid = char:FindFirstChildOfClass("Humanoid")
     if not humanoid then return false end
+
     for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
         local animId = track.Animation and track.Animation.AnimationId
-        if animId == "rbxassetid://82691533602949" or
-           animId == "rbxassetid://122604262087779" or
-           animId == "rbxassetid://130355934640695" then
+        if animId == "rbxassetid://82691533602949" or -- Center
+           animId == "rbxassetid://122604262087779" or -- Left
+           animId == "rbxassetid://130355934640695" then -- Right
             return true
         end
     end
     return false
 end
 
-local function notifyFake(gen)
-    Rayfield:Notify({
-        Title = "Fake Generator Detected!",
-        Content = "Generator '" .. gen.Name .. "' is fake. Skipping repair.",
-        Duration = 2
-    })
-end
-
+-- Collect nearby generators
 local function getNearbyGenerators()
     local candidates = {}
-    local map = game.Workspace:FindFirstChild("Map")
-    if not map or not map:FindFirstChild("Ingame") or not map.Ingame:FindFirstChild("Map") then return candidates end
+    local map = getMap()
+    if not map then return candidates end
     local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return candidates end
 
-    for _, gen in ipairs(map.Ingame.Map:GetChildren()) do
+    for _, gen in ipairs(map:GetChildren()) do
         if gen.Name ~= "FakeGenerator" and gen:FindFirstChild("Main") and gen.Main:FindFirstChild("Prompt") then
             local d = (hrp.Position - gen.Main.Position).Magnitude
             if d <= maxDist then
@@ -72,20 +78,29 @@ local function getNearbyGenerators()
     return candidates
 end
 
+-- Fire the generator remote
 local function attemptRepair(gen)
     if gen.Name == "FakeGenerator" then
-        notifyFake(gen)
+        Rayfield:Notify({
+            Title = "Fake Generator Detected!",
+            Content = "Generator '" .. gen.Name .. "' is fake. Skipping repair.",
+            Duration = 2
+        })
         return
     end
-    if not gen:FindFirstChild("Remotes") then return end
-    local re = gen.Remotes:FindFirstChild("RE")
-    if re then
-        re:FireServer()
-        lastRepair = tick()
+
+    if gen:FindFirstChild("Remotes") then
+        local re = gen.Remotes:FindFirstChild("RE")
+        if re then
+            re:FireServer()
+            lastRepair = tick()
+        end
     end
 end
 
---// GUI
+--========================================================
+-- Generator Tab UI
+--========================================================
 local GeneratorTab = Window:CreateTab("Generator", 96559240692119)
 
 GeneratorTab:CreateToggle({
@@ -129,7 +144,9 @@ GeneratorTab:CreateButton({
     end
 })
 
---// Auto-repair loop
+--========================================================
+-- Auto-Repair Loop
+--========================================================
 task.spawn(function()
     while true do
         task.wait(0.2)
@@ -144,7 +161,6 @@ task.spawn(function()
         end
     end
 end)
-
 --========================================================
 -- ESP Tab
 --========================================================
