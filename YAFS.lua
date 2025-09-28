@@ -8,7 +8,7 @@ local LocalPlayer = Players.LocalPlayer
 
 -- try Rayfield load safely
 local ok, Rayfield = pcall(function()
-    return loadstring(game:HttpGet("https://raw.githubusercontent.com/TemporaryLives/test/refs/heads/main/modifiedrayfield.lua"))()
+    return loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 end)
 
 if not ok or not Rayfield then
