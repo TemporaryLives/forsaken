@@ -25,7 +25,7 @@ local function getMap()
     return ingame:FindFirstChild("Map")
 end
 
--- Debugging version of generator finder
+-- Generator finder with full fallback chain
 local function getClosestGenerator(maxDist)
     local map = getMap()
     if not map then
@@ -41,29 +41,46 @@ local function getClosestGenerator(maxDist)
 
     local closest, dist = nil, maxDist or 30
     for _, obj in ipairs(map:GetChildren()) do
-        if obj.Name == "Generator" or obj.Name == "FakeGenerator" then
+        if obj.Name == "Generator" then
             local re = obj:FindFirstChild("Remotes")
             local prog = obj:FindFirstChild("Progress")
             if re and prog then
-                if obj.Name == "FakeGenerator" then
-                    warn("[DEBUG] Skipping FakeGenerator:", obj:GetFullName())
-                else
-                    local main = obj:FindFirstChild("Generator") or obj:FindFirstChild("Root") or obj:FindFirstChild("Base")
-                    if not main then
-                        warn("[DEBUG] Generator found but no main part:", obj:GetFullName())
-                    elseif not main:IsA("BasePart") then
-                        warn("[DEBUG] Main is not a BasePart:", main:GetFullName())
-                    else
-                        local d = (hrp.Position - main.Position).Magnitude
-                        warn("[DEBUG] Found generator:", obj:GetFullName(), "Dist:", d)
-                        if d < dist then
-                            closest, dist = obj, d
+                local main = nil
+
+                -- 1. Try PrimaryPart
+                if obj:IsA("Model") and obj.PrimaryPart then
+                    main = obj.PrimaryPart
+                end
+
+                -- 2. Try common names
+                if not main then
+                    main = obj:FindFirstChild("Generator") or obj:FindFirstChild("Root") or obj:FindFirstChild("Base")
+                end
+
+                -- 3. Fallback: first BasePart inside model
+                if not main then
+                    for _, child in ipairs(obj:GetDescendants()) do
+                        if child:IsA("BasePart") then
+                            main = child
+                            break
                         end
                     end
+                end
+
+                if main then
+                    local d = (hrp.Position - main.Position).Magnitude
+                    warn("[DEBUG] Generator usable:", obj:GetFullName(), "Dist:", d, "Using part:", main.Name)
+                    if d < dist then
+                        closest, dist = obj, d
+                    end
+                else
+                    warn("[DEBUG] Generator has no BaseParts at all:", obj:GetFullName())
                 end
             else
                 warn("[DEBUG] Generator missing Remotes/Progress:", obj:GetFullName())
             end
+        elseif obj.Name == "FakeGenerator" then
+            warn("[DEBUG] Skipping FakeGenerator:", obj:GetFullName())
         end
     end
 
