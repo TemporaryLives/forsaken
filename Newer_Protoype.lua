@@ -868,3 +868,118 @@ Ingame.ChildAdded:Connect(function(c)
     end
 end)
 
+-- Misc Tab
+
+local MiscTab = Window:CreateTab("Misc Tab", 72612560514066)
+
+local RoundTimer = LocalPlayer.PlayerGui:WaitForChild("RoundTimer").Main
+
+-- Round Timer position slider
+MiscTab:CreateSlider({
+    Name = "Round Timer X Position",
+    Range = {0.2, 0.8},
+    Increment = 0.01,
+    CurrentValue = 0.5,
+    Callback = function(val)
+        RoundTimer.Position = UDim2.new(
+            val,
+            0,
+            RoundTimer.Position.Y.Scale,
+            RoundTimer.Position.Y.Offset
+        )
+    end
+})
+
+-- Reset Round Timer position button
+MiscTab:CreateButton({
+    Name = "Reset Round Timer Position",
+    Callback = function()
+        RoundTimer.Position = UDim2.new(0.5, 0, -0.0175, 0)
+    end
+})
+
+-- Block Subspaced effects toggle
+MiscTab:CreateToggle({
+    Name = "Block Subspaced Effects",
+    CurrentValue = false,
+    Callback = function(state)
+        local sub = ReplicatedStorage.Modules.StatusEffects.SurvivorExclusive
+        local subspace = sub:FindFirstChild("Subspaced")
+        local subzero = sub:FindFirstChild("Subzerospaced")
+
+        if state then
+            if subspace then
+                subspace.Name = "Subzerospaced"
+            end
+        else
+            if subzero then
+                subzero.Name = "Subspaced"
+            end
+        end
+
+        Rayfield:Notify({
+            Title = "Misc",
+            Content = state and "Subspaced blocked!" or "Subspaced restored!",
+            Duration = 2,
+            Image = 4483362458
+        })
+    end
+})
+
+-- c00lgui Tracker
+local trackerEnabled=false
+local cooldownTime=30
+local lastTrigger={}
+local activeC00lParts={}
+local function notify(t,c) Rayfield:Notify({Title=t,Content=c,Duration=6.5,Image=4483362458}) end
+
+local function trackPlayer(model)
+    local player=Players:GetPlayerFromCharacter(model)
+    if not player then return end
+    local function setup(c00l)
+        if not c00l then return end
+        if lastTrigger[player] and (tick()-lastTrigger[player])<cooldownTime then return end
+        lastTrigger[player]=tick()
+        notify("c00lgui Tracker","@"..player.Name.." is using c00lgui.")
+        activeC00lParts[player]=c00l
+    end
+    local existing=model:FindFirstChild("c00lgui")
+    if existing then setup(existing) end
+    model.ChildAdded:Connect(function(ch) if ch.Name=="c00lgui" then setup(ch) end end)
+end
+
+RunService.Heartbeat:Connect(function()
+    for player,c00l in pairs(activeC00lParts) do
+        local model=player.Character
+        if not model or not c00l or not c00l:IsDescendantOf(model) then
+            local hrp=model and model:FindFirstChild("HumanoidRootPart")
+            local teleported=false
+            if hrp then
+                local spawns=getMap() and workspace.Map.Ingame.Map.SpawnPoints.Survivors:GetChildren() or {}
+                for _,s in ipairs(spawns) do
+                    if s.Name=="SurvivorSpawn" and (hrp.Position-s.Position).Magnitude<=25 then
+                        teleported=true break
+                    end
+                end
+            end
+            if teleported then notify("c00lgui Tracker","@"..player.Name.." teleported.")
+            else notify("c00lgui Tracker","@"..player.Name.."'s c00lgui cancelled.") end
+            activeC00lParts[player]=nil
+        end
+    end
+end)
+
+MiscTab:CreateToggle({
+    Name="c00lgui Tracker",
+    CurrentValue=false,
+    Callback=function(s)
+        trackerEnabled=s
+        if trackerEnabled then
+            local surv=workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")
+            if surv then
+                for _,m in ipairs(surv:GetChildren()) do if m.Name=="007n7" then trackPlayer(m) end end
+                surv.ChildAdded:Connect(function(m) if m.Name=="007n7" then trackPlayer(m) end end)
+            end
+        end
+    end
+})
