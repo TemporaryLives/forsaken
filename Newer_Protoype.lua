@@ -17,22 +17,24 @@ local GenTab = Window:CreateTab("Generator")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
--- Always fetch fresh "Ingame.Map" each call
+-- Always wait for fresh Map each round
+local function waitForMap()
+    local root = workspace:WaitForChild("Map")
+    local ingame = root:WaitForChild("Ingame")
+    local map = ingame:WaitForChild("Map")
+    return map
+end
+
+-- Fetch current map safely
 local function getMap()
     local root = workspace:FindFirstChild("Map")
     if not root then return nil end
-
     local ingame = root:FindFirstChild("Ingame")
     if not ingame then return nil end
-
-    local map = ingame:FindFirstChild("Map")
-    if map and map:IsDescendantOf(workspace) then
-        return map
-    end
-    return nil
+    return ingame:FindFirstChild("Map")
 end
 
--- Find closest valid generator
+-- Find closest generator in current map
 local function getClosestGenerator(maxDist)
     local map = getMap()
     if not map then return nil, math.huge end
@@ -40,10 +42,9 @@ local function getClosestGenerator(maxDist)
     local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return nil, math.huge end
 
-    local closest, dist = nil, maxDist or 12
+    local closest, dist = nil, maxDist or 30 -- raised default range
     for _, obj in ipairs(map:GetChildren()) do
         if obj.Name == "Generator" and obj:FindFirstChild("Remotes") and obj:FindFirstChild("Progress") then
-            -- skip fake generators
             if obj.Name ~= "FakeGenerator" then
                 local main = obj:FindFirstChild("Generator") or obj:FindFirstChild("Root") or obj:FindFirstChild("Base")
                 if main and main:IsA("BasePart") then
@@ -116,7 +117,7 @@ GenTab:CreateButton({
             return
         end
 
-        local gen, dist = getClosestGenerator(12)
+        local gen, dist = getClosestGenerator(30) -- bumped range
         if not gen then
             Rayfield:Notify({Title="Generator", Content="No generator found nearby.", Duration=1.6})
             return
@@ -144,10 +145,15 @@ task.spawn(function()
     while true do
         task.wait(0.2)
 
+        -- Ensure we always have a map ready
+        if not getMap() then
+            waitForMap()
+        end
+
         if autoRepair and isRepairing() then
             local now = tick()
             if now - lastRepair >= repairCooldown then
-                local gen, _ = getClosestGenerator(12)
+                local gen, _ = getClosestGenerator(30)
                 if gen and gen:FindFirstChild("Remotes") then
                     local re = gen.Remotes:FindFirstChild("RE")
                     if re then
@@ -168,16 +174,13 @@ local ingame = root:WaitForChild("Ingame")
 
 ingame.ChildAdded:Connect(function(child)
     if child.Name == "Map" then
-        warn("[Prototype] New round map detected:", child)
+        Rayfield:Notify({Title="Generator", Content="New round map detected.", Duration=2})
     end
 end)
 
 ingame.ChildRemoved:Connect(function(child)
     if child.Name == "Map" then
-        warn("[Prototype] Round map removed:", child)
+        Rayfield:Notify({Title="Generator", Content="Round map removed.", Duration=2})
     end
 end)
-
---ESP tab here:
-
 
