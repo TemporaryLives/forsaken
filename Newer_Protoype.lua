@@ -42,7 +42,7 @@ local function getClosestGenerator(maxDist)
     local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then return nil, math.huge end
 
-    local closest, dist = nil, maxDist or 30 -- raised default range
+    local closest, dist = nil, maxDist or 12 -- raised default range
     for _, obj in ipairs(map:GetChildren()) do
         if obj.Name == "Generator" and obj:FindFirstChild("Remotes") and obj:FindFirstChild("Progress") then
             if obj.Name ~= "FakeGenerator" then
@@ -94,7 +94,7 @@ GenTab:CreateToggle({
 })
 
 GenTab:CreateInput({
-    Name = "Repair Cooldown (2.4 - 15) (auto)",
+    Name = "Repair Cooldown (2.4 - 15)",
     PlaceholderText = tostring(repairCooldown),
     RemoveTextAfterFocusLost = false,
     Callback = function(val)
@@ -109,7 +109,7 @@ GenTab:CreateInput({
 })
 
 GenTab:CreateButton({
-    Name = "Manual Repair Fire (hard min 2.4s)",
+    Name = "Manual Repair Fire",
     Callback = function()
         local now = tick()
         if now - lastManual < 2.4 then
@@ -183,4 +183,3 @@ ingame.ChildRemoved:Connect(function(child)
         Rayfield:Notify({Title="Generator", Content="Round map removed.", Duration=2})
     end
 end)
-
