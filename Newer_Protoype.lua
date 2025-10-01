@@ -868,11 +868,30 @@ Ingame.ChildAdded:Connect(function(c)
     end
 end)
 
--- Misc Tab
-
 local MiscTab = Window:CreateTab("Misc Tab", 72612560514066)
 
 local RoundTimer = LocalPlayer.PlayerGui:WaitForChild("RoundTimer").Main
+
+-- Delete Privacy Settings toggle
+MiscTab:CreateToggle({
+    Name = "Delete Privacy Settings",
+    CurrentValue = false,
+    Flag = "DeletePrivacy",
+    Callback = function(Value)
+        if Value then
+            for _, player in pairs(Players:GetPlayers()) do
+                local privacyFolder = player:FindFirstChild("PlayerData")
+                    and player.PlayerData:FindFirstChild("Settings")
+                    and player.PlayerData.Settings:FindFirstChild("Privacy")
+                if privacyFolder then
+                    for _, item in pairs(privacyFolder:GetChildren()) do
+                        item:Destroy()
+                    end
+                end
+            end
+        end
+    end,
+})
 
 -- Round Timer position slider
 MiscTab:CreateSlider({
