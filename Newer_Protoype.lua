@@ -1,6 +1,6 @@
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 local Window = Rayfield:CreateWindow({Name="Just Yet Another Forsaken Script",LoadingTitle="Loading...",LoadingSubtitle="🌌 ✨",ConfigurationSaving={Enabled=false},Discord={Enabled=false}})
-local GenTab = Window:CreateTab("Generator")
+local GenTab = Window:CreateTab("Generator", 6031280882)
 local Players, LocalPlayer = game:GetService("Players"), game:GetService("Players").LocalPlayer
 
 local function getMap()
@@ -88,7 +88,7 @@ task.spawn(function()
 end)
 
 -- ESP Tab
-local ESPTab = Window:CreateTab("ESP")
+local ESPTab = Window:CreateTab("ESP", 6034509993)
 
 local ESPState = {
     PlayerHighlights = false,
@@ -703,7 +703,7 @@ ESPTab:CreateToggle({
 
 -- Player Tab
 
-local PlayerTab = Window:CreateTab("Player", 4483362458)
+local PlayerTab = Window:CreateTab("Player", 6034509994)
 local Player = game:GetService("Players").LocalPlayer
 local RS, UIS = game:GetService("RunService"), game:GetService("UserInputService")
 local Sprinting = game.ReplicatedStorage.Systems.Character.Game.Sprinting
