@@ -868,7 +868,7 @@ Ingame.ChildAdded:Connect(function(c)
     end
 end)
 
-local MiscTab = Window:CreateTab("Misc Tab", 72612560514066)
+local MiscTab = Window:CreateTab("Misc", 72612560514066)
 
 local RoundTimer = LocalPlayer.PlayerGui:WaitForChild("RoundTimer").Main
 
