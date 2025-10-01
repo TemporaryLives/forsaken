@@ -22,8 +22,17 @@ local function getClosestGenerator(maxDist)
     return closest
 end
 
--- Generator Tab
+-- 🔊 Play fire sound
+local function playFireSound()
+    local s = Instance.new("Sound")
+    s.SoundId = "rbxassetid://81355841754389"
+    s.Volume = 1
+    s.Parent = workspace -- could also use SoundService
+    s:Play()
+    game:GetService("Debris"):AddItem(s, 5)
+end
 
+-- Generator Tab
 local autoRepair, repairCooldown, lastRepair, lastManual = false, 6.2, 0, 0
 local _REPAIR_ANIMS = {["rbxassetid://82691533602949"]=true,["rbxassetid://122604262087779"]=true,["rbxassetid://130355934640695"]=true}
 
@@ -34,8 +43,6 @@ local function isRepairing()
         if t.Animation and _REPAIR_ANIMS[tostring(t.Animation.AnimationId)] then return true end
     end
 end
-
-
 
 GenTab:CreateToggle({Name="Auto-Repair Generators",CurrentValue=false,Callback=function(v) autoRepair=v end})
 GenTab:CreateInput({
@@ -54,7 +61,11 @@ GenTab:CreateButton({
         local g=getClosestGenerator(10)
         if g and g:FindFirstChild("Remotes") then
             local re=g.Remotes:FindFirstChild("RE")
-            if re then pcall(function() re:FireServer() end) lastManual=now end
+            if re then 
+                pcall(function() re:FireServer() end)
+                playFireSound() -- 🔊 play sound on manual fire
+                lastManual=now 
+            end
         end
     end
 })
@@ -75,6 +86,7 @@ task.spawn(function()
                 local re = g:FindFirstChild("Remotes") and g.Remotes:FindFirstChild("RE")
                 if re then
                     pcall(function() re:FireServer() end)
+                    playFireSound() -- 🔊 play sound on auto fire
                     lastRepair = now
                     entryTime = now
                 end
