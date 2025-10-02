@@ -142,32 +142,6 @@ local ESPState = {
     KillerMinions = false,
     DigitalFootprints = false
 }
-local ESPConnections = {}
-
-local Colors = {
-    Survivor = Color3.fromRGB(60, 179, 113),
-    Killer = Color3.fromRGB(255, 99, 71),
-    Item = Color3.fromRGB(64, 224, 208),
-    Generator = Color3.fromRGB(255, 255, 255),
-    FakeGenerator = Color3.fromRGB(138, 43, 226),
-    SurvivorDeployable = Color3.fromRGB(152, 251, 152),
-    KillerMinion = Color3.fromRGB(255, 99, 71),
-    DigitalFootprint = Color3.fromRGB(255, 99, 71)
-}
-
--- ESP Tab
-local ESPTab = Window:CreateTab("ESP", 6034509993)
-
-local ESPState = {
-    PlayerHighlights = false,
-    PlayerESP = false,
-    Items = false,
-    Generators = false,
-    FakeGenerators = false,
-    SurvivorDeployables = false,
-    KillerMinions = false,
-    DigitalFootprints = false
-}
 
 local ESPConnections = {}
 
@@ -841,15 +815,23 @@ MakeInput("Stamina Loss", DefaultStamina.Loss, function(n) stamina.StaminaLoss=n
 MakeInput("Sprint Speed", DefaultStamina.Speed, function(n) stamina.SprintSpeed=n end)
 
 local preview={cons={},label=nil,stam=0}
+local LABEL_ONSCREEN = UDim2.new(0,10,.5,-12)
+local LABEL_OFFSCREEN = UDim2.new(-1,0,0,0)
+
 local function EnablePreview()
     local ui,btn=Player.PlayerGui.MainUI,Player.PlayerGui.MainUI.SprintingButton
-    local isKiller=workspace.Players.Killers:FindFirstChild(Player.Name)~=nil
-    local staminaVal=isKiller and 115 or stamina.MaxStamina
-    preview.stam=staminaVal
+    -- Robust killer detection for folder errors
+    local function isKiller()
+        local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
+        return killersFolder and killersFolder:FindFirstChild(Player.Name) ~= nil
+    end
+    -- Use correct stamina for role
+    local staminaVal = isKiller() and 115 or (CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max)
+    preview.stam = staminaVal
 
     local lbl=Instance.new("TextLabel")
     lbl.Size=UDim2.fromOffset(120,24)
-    lbl.Position=UDim2.new(0,10,.5,-12)
+    lbl.Position=LABEL_ONSCREEN
     lbl.AnchorPoint=Vector2.new(0,.5)
     lbl.BackgroundTransparency=1
     lbl.TextColor3=Color3.new(1,1,1)
@@ -865,9 +847,12 @@ local function EnablePreview()
 
     local function nearestSurvivor(pos)
         local d=math.huge
-        for _,s in ipairs(workspace.Players.Survivors:GetChildren())do
-            local hrp=s:FindFirstChild("HumanoidRootPart")
-            if hrp then d=math.min(d,(hrp.Position-pos).Magnitude) end
+        local survivorsFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")
+        if survivorsFolder then
+            for _,s in ipairs(survivorsFolder:GetChildren())do
+                local hrp=s:FindFirstChild("HumanoidRootPart")
+                if hrp then d=math.min(d,(hrp.Position-pos).Magnitude) end
+            end
         end
         return d
     end
@@ -879,15 +864,23 @@ local function EnablePreview()
         Player.CharacterAdded:Connect(charAdded),
         RS.RenderStepped:Connect(function(dt)
             if not (hum and root) then return end
+            -- Re-evaluate role every frame in case of folder changes
+            local killer = isKiller()
+            local maxS = killer and 115 or (CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max)
             local gain = CustomToggle.CurrentValue and stamina.StaminaGain or DefaultStamina.Gain
             local loss = CustomToggle.CurrentValue and stamina.StaminaLoss or DefaultStamina.Loss
-            local maxS = CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max
             local thresh = 0.5
             local range = 100
 
             local moving = hum.MoveDirection.Magnitude>0 and Vector3.new(root.Velocity.X,0,root.Velocity.Z).Magnitude>thresh
             local active = (UIS.KeyboardEnabled and shiftHeld) or (UIS.TouchEnabled and currRun)
-            local draining = active and moving and (not isKiller or nearestSurvivor(root.Position)<=range)
+            local draining = false
+
+            if killer then
+                draining = active and moving and nearestSurvivor(root.Position) <= range
+            else
+                draining = active and moving
+            end
 
             preview.stam += (draining and -loss or gain)*dt
             preview.stam = math.clamp(preview.stam,0,maxS)
@@ -897,16 +890,18 @@ local function EnablePreview()
 end
 
 local function DisablePreview()
-    if preview.label then preview.label:Destroy() end
+    if preview.label then
+        preview.label.Position = LABEL_OFFSCREEN -- Move label off-screen instead of destroying it
+    end
     for _,c in ipairs(preview.cons)do c:Disconnect() end
-    preview.cons,preview.label={},nil
+    preview.cons = {}
 end
 
 PlayerTab:CreateToggle({
     Name="Show Expected Stamina",
     CurrentValue=false,
     Flag="ShowExpectedStamina",
-    Callback=function(v) if v then EnablePreview() else DisablePreview() end end
+    Callback=function(v) if v then EnablePreview() else DisablePreview() end
 })
 
 local Ingame=workspace:WaitForChild("Map"):WaitForChild("Ingame")
