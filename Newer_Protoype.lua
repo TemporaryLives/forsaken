@@ -1,13 +1,12 @@
 --[[
-    Just Yet Another Forsaken Script
-    Tidy Layout by Copilot, 2025-10-01
-    - All logic is preserved. Only layout, grouping, and clarity improved.
+    Yet Another Forsaken Script [Revamp]?
+   
 --]]
 
 --//===[ Dependencies and Setup ]===//--
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 local Window = Rayfield:CreateWindow({
-    Name="Just Yet Another Forsaken Script",
+    Name="Yet Another Forsaken Script",
     LoadingTitle="YAFS",
     LoadingSubtitle="Loading...✨",
     ConfigurationSaving={Enabled=false},
