@@ -1034,26 +1034,49 @@ MiscTab:CreateButton({
 })
 
 MiscTab:CreateToggle({
-    Name = "Block Subspaced Effects",
+    Name = "Block Subspaced Effect",
     CurrentValue = false,
     Callback = function(state)
-        local sub = ReplicatedStorage.Modules.StatusEffects.SurvivorExclusive
-        local subspace = sub:FindFirstChild("Subspaced")
-        local subzero = sub:FindFirstChild("Subzerospaced")
+        local sub = game:GetService("ReplicatedStorage").Modules.StatusEffects.SurvivorExclusive
 
         if state then
-            if subspace then
-                subspace.Name = "Subzerospaced"
+            if sub:FindFirstChild("Subspaced") then
+                sub.Subspaced.Name = "Subzerospaced"
             end
         else
-            if subzero then
-                subzero.Name = "Subspaced"
+            if sub:FindFirstChild("Subzerospaced") then
+                sub.Subzerospaced.Name = "Subspaced"
             end
         end
 
         Rayfield:Notify({
             Title = "Misc",
-            Content = state and "Subspaced blocked!" or "Subspaced restored!",
+            Content = state and "Subspaced blocked." or "Subspaced restored.",
+            Duration = 2,
+            Image = 4483362458
+        })
+    end
+})
+
+MiscTab:CreateToggle({
+    Name = "Block New Glitched Effect",
+    CurrentValue = false,
+    Callback = function(state)
+        local sub = game:GetService("ReplicatedStorage").Modules.StatusEffects.KillerrExclusive
+
+        if state then
+            if sub:FindFirstChild("Glitched") then
+                sub.Subspaced.Name = "TheNewGlitched"
+            end
+        else
+            if sub:FindFirstChild("TheNewGlitched") then
+                sub.Subzerospaced.Name = "Glitched"
+            end
+        end
+
+        Rayfield:Notify({
+            Title = "Misc",
+            Content = state and "New Glitched blocked." or "New Glitched restored.",
             Duration = 2,
             Image = 4483362458
         })
