@@ -130,7 +130,7 @@ task.spawn(function()
 end)
 
 --//===[ ESP Tab ]===//--
-local ESPTab = Window:CreateTab("ESP", 103881815886516)
+local ESPTab = Window:CreateTab("ESP", 114055269167425)
 
 local ESPState = {
     PlayerHighlights = false,
@@ -744,7 +744,7 @@ ESPTab:CreateToggle({
 })
 
 --//===[ Player Tab ]===//--
-local PlayerTab = Window:CreateTab("Player", 6034509994)
+local PlayerTab = Window:CreateTab("Player", 89251076279188)
 local Player = game.Players.LocalPlayer
 local RS, UIS = game:GetService("RunService"), game:GetService("UserInputService")
 local Sprinting = game.ReplicatedStorage.Systems.Character.Game.Sprinting
