@@ -743,7 +743,7 @@ ESPTab:CreateToggle({
 })
 
 --//===[ Player Tab ]===//--
-local PlayerTab = Window:CreateTab("Player", 89251076279188)
+local PlayerTab = Window:CreateTab("Player", 6034509994)
 local Player = game.Players.LocalPlayer
 local RS, UIS = game:GetService("RunService"), game:GetService("UserInputService")
 local Sprinting = game.ReplicatedStorage.Systems.Character.Game.Sprinting
@@ -818,8 +818,15 @@ MakeInput("Stamina Gain", DefaultStamina.Gain, function(n) stamina.StaminaGain=n
 MakeInput("Stamina Loss", DefaultStamina.Loss, function(n) stamina.StaminaLoss=n end)
 MakeInput("Sprint Speed", DefaultStamina.Speed, function(n) stamina.SprintSpeed=n end)
 
---=== Expected Stamina Preview ===--
-local preview = { cons = {}, label = nil, stam = 0, created = false }
+--=== Expected Stamina Preview (two-label approach) ===--
+local preview = {
+    cons = {},
+    labelSurvivor = nil,
+    labelKiller = nil,
+    stam = 0,
+    created = false,
+    lastRoleIsKiller = nil,
+}
 
 local function nearestSurvivor(pos)
     local closestDist = nil
@@ -835,27 +842,41 @@ local function nearestSurvivor(pos)
     return closestDist
 end
 
-local function EnablePreview()
-    if preview.created and preview.label then
-        preview.label.Visible = true
-        preview.label.Position = UDim2.new(0,10,.5,-12)
-        return
-    end
-
-    local ui, btn = Player.PlayerGui.MainUI, Player.PlayerGui.MainUI.SprintingButton
-    if not ui or not btn then return end
-
+local function makeLabel(parent, anchorPos)
     local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.fromOffset(120,24)
-    lbl.Position = UDim2.new(0,10,.5,-12)
+    lbl.Size = UDim2.fromOffset(140,24)
+    lbl.Position = anchorPos or UDim2.new(0,10,.5,-12)
     lbl.AnchorPoint = Vector2.new(0,.5)
     lbl.BackgroundTransparency = 1
     lbl.TextColor3 = Color3.new(1,1,1)
     lbl.TextSize = 18
     lbl.Font = Enum.Font.Gotham
     lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = ui
-    preview.label = lbl
+    lbl.Parent = parent
+    return lbl
+end
+
+local function EnablePreview()
+    if preview.created and preview.labelSurvivor and preview.labelKiller then
+        -- make visible according to current role
+        local isKillerNow = workspace.Players.Killers:FindFirstChild(Player.Name) ~= nil
+        preview.labelKiller.Visible = isKillerNow
+        preview.labelSurvivor.Visible = not isKillerNow
+        preview.labelSurvivor.Position = UDim2.new(0,10,.5,-12)
+        preview.labelKiller.Position = UDim2.new(0,10,.5,-12)
+        return
+    end
+
+    local ui, btn = Player.PlayerGui and Player.PlayerGui.MainUI, Player.PlayerGui and Player.PlayerGui.MainUI and Player.PlayerGui.MainUI.SprintingButton
+    if not ui or not btn then return end
+
+    -- create two labels
+    preview.labelSurvivor = makeLabel(ui)
+    preview.labelKiller = makeLabel(ui)
+
+    -- start visible state off (we'll set proper visibility below)
+    preview.labelSurvivor.Visible = false
+    preview.labelKiller.Visible = false
 
     local hum, root, shiftHeld, currRun = nil, nil, false, false
     local function charAdded(c)
@@ -863,16 +884,18 @@ local function EnablePreview()
         root = c:WaitForChild("HumanoidRootPart")
     end
     if Player.Character then charAdded(Player.Character) end
+    Player.CharacterAdded:Connect(charAdded)
 
-    -- start stamina with current max
-    preview.stam = stamina.MaxStamina
-    local lastRoleIsKiller = nil
+    -- initialize stam to whichever pool is current
+    local isKillerInit = workspace.Players.Killers:FindFirstChild(Player.Name) ~= nil
+    local initMax = isKillerInit and 115 or (CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max)
+    preview.stam = initMax
+    preview.lastRoleIsKiller = isKillerInit
 
     preview.cons = {
         btn.MouseButton1Click:Connect(function() currRun = not currRun end),
         UIS.InputBegan:Connect(function(i,g) if not g and i.KeyCode==Enum.KeyCode.LeftShift then shiftHeld=true end end),
         UIS.InputEnded:Connect(function(i,g) if not g and i.KeyCode==Enum.KeyCode.LeftShift then shiftHeld=false end end),
-        Player.CharacterAdded:Connect(charAdded),
         RS.RenderStepped:Connect(function(dt)
             if not (hum and root) then return end
 
@@ -882,7 +905,7 @@ local function EnablePreview()
             local loss = CustomToggle.CurrentValue and stamina.StaminaLoss or DefaultStamina.Loss
             local maxS = isKiller and 115 or (CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max)
             local thresh = 0.5
-            local range = 100 -- killer stamina drain radius
+            local range = 100 -- hardcoded to match game
 
             local moving = hum.MoveDirection.Magnitude > 0 and Vector3.new(root.Velocity.X,0,root.Velocity.Z).Magnitude > thresh
             local active = (UIS.KeyboardEnabled and shiftHeld) or (UIS.TouchEnabled and currRun)
@@ -895,28 +918,46 @@ local function EnablePreview()
                 draining = active and moving
             end
 
-            -- detect role swap and reset stamina pool
-            if lastRoleIsKiller ~= isKiller then
-                preview.stam = maxS
-                lastRoleIsKiller = isKiller
+            -- role change handling: force pool and swap visible label immediately
+            if preview.lastRoleIsKiller ~= isKiller then
+                preview.stam = maxS               -- reset stamina to the new pool
+                preview.lastRoleIsKiller = isKiller
+                -- swap label visibility
+                preview.labelKiller.Visible = isKiller
+                preview.labelSurvivor.Visible = not isKiller
             end
 
             preview.stam = preview.stam + (draining and -loss or gain) * dt
             preview.stam = math.clamp(preview.stam, 0, maxS)
 
-            if preview.label and preview.label.Parent then
-                preview.label.Text = string.format("%d/%d", math.floor(preview.stam + 0.5), maxS)
+            -- update both labels text so whichever becomes visible is already correct
+            if preview.labelSurvivor and preview.labelSurvivor.Parent then
+                local sText = string.format("Survivor: %d/%d", math.floor(preview.stam + 0.5), maxS)
+                preview.labelSurvivor.Text = sText
+            end
+            if preview.labelKiller and preview.labelKiller.Parent then
+                local kText = string.format("Killer: %d/%d", math.floor(preview.stam + 0.5), maxS)
+                preview.labelKiller.Text = kText
             end
         end)
     }
+
+    -- set initial visibility properly
+    preview.labelKiller.Visible = preview.lastRoleIsKiller
+    preview.labelSurvivor.Visible = not preview.lastRoleIsKiller
 
     preview.created = true
 end
 
 local function DisablePreview()
-    if preview.label then
-        preview.label.Visible = false
-        preview.label.Position = UDim2.new(-1,0,0,0) -- move off-screen
+    -- hide both labels (don't destroy or disconnect)
+    if preview.labelSurvivor then
+        preview.labelSurvivor.Visible = false
+        preview.labelSurvivor.Position = UDim2.new(-1,0,0,0)
+    end
+    if preview.labelKiller then
+        preview.labelKiller.Visible = false
+        preview.labelKiller.Position = UDim2.new(-1,0,0,0)
     end
 end
 
