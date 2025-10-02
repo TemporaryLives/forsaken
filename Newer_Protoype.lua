@@ -744,8 +744,8 @@ ESPTab:CreateToggle({
 })
 
 --//===[ Player Tab ]===//--
-local PlayerTab = Window:CreateTab("Player", 89251076279188)
-local Player = Players.LocalPlayer
+local PlayerTab = Window:CreateTab("Player", 6034509994)
+local Player = game.Players.LocalPlayer
 local RS, UIS = game:GetService("RunService"), game:GetService("UserInputService")
 local Sprinting = game.ReplicatedStorage.Systems.Character.Game.Sprinting
 local stamina = require(Sprinting)
@@ -790,8 +790,13 @@ CustomToggle = PlayerTab:CreateToggle({
             WarnConflict(); CustomToggle:Set(false); return
         end
         if not v then
-            for k,vv in pairs(DefaultStamina) do stamina[k.."Stamina"]=vv end
+            -- Reset to defaults cleanly
+            stamina.MaxStamina = DefaultStamina.Max
+            stamina.MinStamina = DefaultStamina.Min
+            stamina.StaminaGain = DefaultStamina.Gain
+            stamina.StaminaLoss = DefaultStamina.Loss
             stamina.SprintSpeed = DefaultStamina.Speed
+            stamina.StaminaLossDisabled = DefaultStamina.LossDisabled
         end
     end
 })
@@ -814,102 +819,108 @@ MakeInput("Stamina Gain", DefaultStamina.Gain, function(n) stamina.StaminaGain=n
 MakeInput("Stamina Loss", DefaultStamina.Loss, function(n) stamina.StaminaLoss=n end)
 MakeInput("Sprint Speed", DefaultStamina.Speed, function(n) stamina.SprintSpeed=n end)
 
-local preview={cons={},label=nil,stam=0}
-local LABEL_ONSCREEN = UDim2.new(0,10,.5,-12)
-local LABEL_OFFSCREEN = UDim2.new(-1,0,0,0)
+--=== Expected Stamina Preview ===--
+local preview = { cons = {}, label = nil, stam = 0, created = false }
 
 local function EnablePreview()
-    local ui,btn=Player.PlayerGui.MainUI,Player.PlayerGui.MainUI.SprintingButton
-    -- Robust killer detection for folder errors
-    local function isKiller()
-        local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
-        return killersFolder and killersFolder:FindFirstChild(Player.Name) ~= nil
+    if preview.created and preview.label then
+        preview.label.Visible = true
+        preview.label.Position = UDim2.new(0,10,.5,-12)
+        return
     end
-    -- Use correct stamina for role
-    local staminaVal = isKiller() and 115 or (CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max)
-    preview.stam = staminaVal
 
-    local lbl=Instance.new("TextLabel")
-    lbl.Size=UDim2.fromOffset(120,24)
-    lbl.Position=LABEL_ONSCREEN
-    lbl.AnchorPoint=Vector2.new(0,.5)
-    lbl.BackgroundTransparency=1
-    lbl.TextColor3=Color3.new(1,1,1)
-    lbl.TextSize=18
-    lbl.Font=Enum.Font.Gotham
-    lbl.TextXAlignment=Enum.TextXAlignment.Left
-    lbl.Parent=ui
-    preview.label=lbl
+    local ui, btn = Player.PlayerGui.MainUI, Player.PlayerGui.MainUI.SprintingButton
+    if not ui or not btn then return end
 
-    local hum,root,shiftHeld,currRun=nil,nil,false,false
-    local function charAdded(c) hum,root=c:WaitForChild("Humanoid"),c:WaitForChild("HumanoidRootPart") end
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.fromOffset(120,24)
+    lbl.Position = UDim2.new(0,10,.5,-12)
+    lbl.AnchorPoint = Vector2.new(0,.5)
+    lbl.BackgroundTransparency = 1
+    lbl.TextColor3 = Color3.new(1,1,1)
+    lbl.TextSize = 18
+    lbl.Font = Enum.Font.Gotham
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = ui
+    preview.label = lbl
+
+    local hum, root, shiftHeld, currRun = nil, nil, false, false
+    local function charAdded(c)
+        hum = c:WaitForChild("Humanoid")
+        root = c:WaitForChild("HumanoidRootPart")
+    end
     if Player.Character then charAdded(Player.Character) end
 
     local function nearestSurvivor(pos)
-        local d=math.huge
-        local survivorsFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")
-        if survivorsFolder then
-            for _,s in ipairs(survivorsFolder:GetChildren())do
-                local hrp=s:FindFirstChild("HumanoidRootPart")
-                if hrp then d=math.min(d,(hrp.Position-pos).Magnitude) end
+        local d = math.huge
+        for _, s in ipairs(workspace.Players.Survivors:GetChildren()) do
+            local hrp = s:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local dist = (hrp.Position - pos).Magnitude
+                if dist < d then d = dist end
             end
         end
-        return d
+        return d == math.huge and nil or d
     end
 
-    preview.cons={
-        btn.MouseButton1Click:Connect(function() currRun=not currRun end),
+    preview.stam = stamina.MaxStamina
+
+    preview.cons = {
+        btn.MouseButton1Click:Connect(function() currRun = not currRun end),
         UIS.InputBegan:Connect(function(i,g) if not g and i.KeyCode==Enum.KeyCode.LeftShift then shiftHeld=true end end),
         UIS.InputEnded:Connect(function(i,g) if not g and i.KeyCode==Enum.KeyCode.LeftShift then shiftHeld=false end end),
         Player.CharacterAdded:Connect(charAdded),
         RS.RenderStepped:Connect(function(dt)
             if not (hum and root) then return end
-            -- Re-evaluate role every frame in case of folder changes
-            local killer = isKiller()
-            local maxS = killer and 115 or (CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max)
+
+            -- check if player is killer every frame
+            local isKiller = workspace.Players.Killers:FindFirstChild(Player.Name) ~= nil
+
             local gain = CustomToggle.CurrentValue and stamina.StaminaGain or DefaultStamina.Gain
             local loss = CustomToggle.CurrentValue and stamina.StaminaLoss or DefaultStamina.Loss
+            local maxS = isKiller and 115 or (CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max)
             local thresh = 0.5
             local range = 100
 
-            local moving = hum.MoveDirection.Magnitude>0 and Vector3.new(root.Velocity.X,0,root.Velocity.Z).Magnitude>thresh
+            local moving = hum.MoveDirection.Magnitude > 0 and Vector3.new(root.Velocity.X,0,root.Velocity.Z).Magnitude > thresh
             local active = (UIS.KeyboardEnabled and shiftHeld) or (UIS.TouchEnabled and currRun)
-            local draining = false
+            local near = nearestSurvivor(root.Position)
+            local draining = active and moving and (not isKiller or (near and near <= range))
 
-            if killer then
-                draining = active and moving and nearestSurvivor(root.Position) <= range
-            else
-                draining = active and moving
+            if preview.stam > maxS then preview.stam = maxS end
+            preview.stam = preview.stam + (draining and -loss or gain) * dt
+            preview.stam = math.clamp(preview.stam, 0, maxS)
+
+            if preview.label and preview.label.Parent then
+                preview.label.Text = string.format("%d/%d", math.floor(preview.stam + 0.5), maxS)
             end
-
-            preview.stam += (draining and -loss or gain)*dt
-            preview.stam = math.clamp(preview.stam,0,maxS)
-            lbl.Text=string.format("%d/%d",preview.stam+.5,maxS)
         end)
     }
+
+    preview.created = true
 end
 
 local function DisablePreview()
     if preview.label then
-        preview.label.Position = LABEL_OFFSCREEN -- Move label off-screen instead of destroying it
+        preview.label.Visible = false
+        preview.label.Position = UDim2.new(-1,0,0,0) -- move off-screen
     end
-    for _,c in ipairs(preview.cons)do c:Disconnect() end
-    preview.cons = {}
 end
 
 PlayerTab:CreateToggle({
     Name="Show Expected Stamina",
     CurrentValue=false,
     Flag="ShowExpectedStamina",
-    Callback=function(v) if v then EnablePreview() else DisablePreview() end
+    Callback=function(v) if v then EnablePreview() else DisablePreview() end end
 })
 
-local Ingame=workspace:WaitForChild("Map"):WaitForChild("Ingame")
+--=== Apply settings when new map loads ===--
+local Ingame = workspace:WaitForChild("Map"):WaitForChild("Ingame")
 Ingame.ChildAdded:Connect(function(c)
     if c.Name=="Map" then
         task.wait(1)
         if InfiniteToggle.CurrentValue then
-            stamina.StaminaLossDisabled=true
+            stamina.StaminaLossDisabled = true
         elseif CustomToggle.CurrentValue then
             local flags=Rayfield.Flags
             local function applyFlag(name,field)
