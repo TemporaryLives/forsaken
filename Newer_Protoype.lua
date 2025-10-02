@@ -865,8 +865,9 @@ local function EnablePreview()
     end
     if Player.Character then charAdded(Player.Character) end
 
-    -- start stamina with max
+    -- start stamina with current max
     preview.stam = stamina.MaxStamina
+    local lastRoleIsKiller = nil
 
     preview.cons = {
         btn.MouseButton1Click:Connect(function() currRun = not currRun end),
@@ -882,7 +883,7 @@ local function EnablePreview()
             local loss = CustomToggle.CurrentValue and stamina.StaminaLoss or DefaultStamina.Loss
             local maxS = isKiller and 115 or (CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max)
             local thresh = 0.5
-            local range = 100 -- radius for killer check
+            local range = 100 -- killer stamina drain radius
 
             local moving = hum.MoveDirection.Magnitude > 0 and Vector3.new(root.Velocity.X,0,root.Velocity.Z).Magnitude > thresh
             local active = (UIS.KeyboardEnabled and shiftHeld) or (UIS.TouchEnabled and currRun)
@@ -895,7 +896,12 @@ local function EnablePreview()
                 draining = active and moving
             end
 
-            if preview.stam > maxS then preview.stam = maxS end
+            -- detect role swap and reset stamina pool
+            if lastRoleIsKiller ~= isKiller then
+                preview.stam = maxS
+                lastRoleIsKiller = isKiller
+            end
+
             preview.stam = preview.stam + (draining and -loss or gain) * dt
             preview.stam = math.clamp(preview.stam, 0, maxS)
 
