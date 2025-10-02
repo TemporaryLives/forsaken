@@ -822,6 +822,20 @@ MakeInput("Sprint Speed", DefaultStamina.Speed, function(n) stamina.SprintSpeed=
 --=== Expected Stamina Preview ===--
 local preview = { cons = {}, label = nil, stam = 0, created = false }
 
+local function nearestSurvivor(pos)
+    local closestDist = nil
+    for _, s in ipairs(workspace.Players.Survivors:GetChildren()) do
+        local hrp = s:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local dist = (hrp.Position - pos).Magnitude
+            if not closestDist or dist < closestDist then
+                closestDist = dist
+            end
+        end
+    end
+    return closestDist
+end
+
 local function EnablePreview()
     if preview.created and preview.label then
         preview.label.Visible = true
@@ -851,18 +865,7 @@ local function EnablePreview()
     end
     if Player.Character then charAdded(Player.Character) end
 
-    local function nearestSurvivor(pos)
-        local d = math.huge
-        for _, s in ipairs(workspace.Players.Survivors:GetChildren()) do
-            local hrp = s:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local dist = (hrp.Position - pos).Magnitude
-                if dist < d then d = dist end
-            end
-        end
-        return d == math.huge and nil or d
-    end
-
+    -- start stamina with max
     preview.stam = stamina.MaxStamina
 
     preview.cons = {
@@ -873,19 +876,24 @@ local function EnablePreview()
         RS.RenderStepped:Connect(function(dt)
             if not (hum and root) then return end
 
-            -- check if player is killer every frame
             local isKiller = workspace.Players.Killers:FindFirstChild(Player.Name) ~= nil
 
             local gain = CustomToggle.CurrentValue and stamina.StaminaGain or DefaultStamina.Gain
             local loss = CustomToggle.CurrentValue and stamina.StaminaLoss or DefaultStamina.Loss
             local maxS = isKiller and 115 or (CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max)
             local thresh = 0.5
-            local range = 100
+            local range = 100 -- radius for killer check
 
             local moving = hum.MoveDirection.Magnitude > 0 and Vector3.new(root.Velocity.X,0,root.Velocity.Z).Magnitude > thresh
             local active = (UIS.KeyboardEnabled and shiftHeld) or (UIS.TouchEnabled and currRun)
-            local near = nearestSurvivor(root.Position)
-            local draining = active and moving and (not isKiller or (near and near <= range))
+
+            local draining
+            if isKiller then
+                local near = nearestSurvivor(root.Position)
+                draining = active and moving and (near and near <= range)
+            else
+                draining = active and moving
+            end
 
             if preview.stam > maxS then preview.stam = maxS end
             preview.stam = preview.stam + (draining and -loss or gain) * dt
