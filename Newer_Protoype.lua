@@ -897,13 +897,13 @@ local function EnablePreview()
             
             -- If role changed, reset stamina to max
             if lastIsKiller ~= nil and lastIsKiller ~= isKiller then
-                local newMax = isKiller and 115 or (CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max)
+                local newMax = isKiller and 110 or (CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max)
                 preview.currentStam = newMax
             end
             lastIsKiller = isKiller
 
             -- Set max stamina based on role
-            local maxStam = isKiller and 115 or (CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max)
+            local maxStam = isKiller and 110 or (CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max)
             
             local gain = CustomToggle.CurrentValue and stamina.StaminaGain or DefaultStamina.Gain
             local loss = CustomToggle.CurrentValue and stamina.StaminaLoss or DefaultStamina.Loss
