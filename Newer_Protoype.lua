@@ -8,8 +8,8 @@
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 local Window = Rayfield:CreateWindow({
     Name="Just Yet Another Forsaken Script",
-    LoadingTitle="Loading...",
-    LoadingSubtitle="🌌 ✨",
+    LoadingTitle="YAFS",
+    LoadingSubtitle="Loading...✨",
     ConfigurationSaving={Enabled=false},
     Discord={Enabled=false}
 })
