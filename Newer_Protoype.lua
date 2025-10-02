@@ -743,68 +743,78 @@ ESPTab:CreateToggle({
 })
 
 --//===[ Player Tab ]===//--
-local PlayerTab = Window:CreateTab("Player", 89251076279188)
+local PlayerTab = Window:CreateTab("Player", 6034509994)
 local Player = Players.LocalPlayer
 local RS, UIS = game:GetService("RunService"), game:GetService("UserInputService")
 local Sprinting = game.ReplicatedStorage.Systems.Character.Game.Sprinting
 local stamina = require(Sprinting)
 
+-- Define the default Killer Max Stamina based on the value used in your original script (115)
+local DEFAULT_KILLER_MAX_STAMINA = 115
+
 local DefaultStamina = {
-    Max = stamina.MaxStamina,
-    Min = stamina.MinStamina,
-    Gain = stamina.StaminaGain,
-    Loss = stamina.StaminaLoss,
-    Speed = stamina.SprintSpeed,
-    LossDisabled = stamina.StaminaLossDisabled
+    Max = stamina.MaxStamina,
+    Min = stamina.MinStamina,
+    Gain = stamina.StaminaGain,
+    Loss = stamina.StaminaLoss,
+    Speed = stamina.SprintSpeed,
+    LossDisabled = stamina.StaminaLossDisabled,
+    -- NOTE: KillerMax is not part of the required module, but tracked here for clarity
+    KillerMax = DEFAULT_KILLER_MAX_STAMINA 
 }
 
 local function WarnConflict()
-    Rayfield:Notify({
-        Title="Conflict Detected",
-        Content="You cannot use Infinite Stamina and Custom Stamina at the same time!",
-        Duration=6,
-        Image=4483362458
-    })
+    Rayfield:Notify({
+        Title="Conflict Detected",
+        Content="You cannot use Infinite Stamina and Custom Stamina at the same time!",
+        Duration=6,
+        Image=4483362458
+    })
 end
 
 local InfiniteToggle, CustomToggle
 InfiniteToggle = PlayerTab:CreateToggle({
-    Name="Infinite Stamina",
-    CurrentValue=false,
-    Flag="InfiniteStamina",
-    Callback=function(v)
-        if v and CustomToggle.CurrentValue then
-            WarnConflict(); InfiniteToggle:Set(false); return
-        end
-        stamina.StaminaLossDisabled = v or DefaultStamina.LossDisabled
-    end
+    Name="Infinite Stamina",
+    CurrentValue=false,
+    Flag="InfiniteStamina",
+    Callback=function(v)
+        if v and CustomToggle.CurrentValue then
+            WarnConflict(); InfiniteToggle:Set(false); return
+        end
+        stamina.StaminaLossDisabled = v or DefaultStamina.LossDisabled
+    end
 })
 
 CustomToggle = PlayerTab:CreateToggle({
-    Name="Custom Stamina",
-    CurrentValue=false,
-    Flag="CustomStamina",
-    Callback=function(v)
-        if v and InfiniteToggle.CurrentValue then
-            WarnConflict(); CustomToggle:Set(false); return
-        end
-        if not v then
-            for k,vv in pairs(DefaultStamina) do stamina[k.."Stamina"]=vv end
-            stamina.SprintSpeed = DefaultStamina.Speed
-        end
-    end
+    Name="Custom Stamina",
+    CurrentValue=false,
+    Flag="CustomStamina",
+    Callback=function(v)
+        if v and InfiniteToggle.CurrentValue then
+            WarnConflict(); CustomToggle:Set(false); return
+        end
+        if not v then
+            for k,vv in pairs(DefaultStamina) do 
+                -- Skip the custom KillerMax field when resetting
+                if k ~= "KillerMax" then
+                    stamina[k.."Stamina"]=vv 
+                end
+            end
+            stamina.SprintSpeed = DefaultStamina.Speed
+        end
+    end
 })
 
 local function MakeInput(name, def, apply)
-    PlayerTab:CreateInput({
-        Name=name,
-        PlaceholderText=tostring(def),
-        RemoveTextAfterFocusLost=false,
-        Callback=function(txt)
-            local num=tonumber(txt)
-            if num and CustomToggle.CurrentValue then apply(num) end
-        end
-    })
+    PlayerTab:CreateInput({
+        Name=name,
+        PlaceholderText=tostring(def),
+        RemoveTextAfterFocusLost=false,
+        Callback=function(txt)
+            local num=tonumber(txt)
+            if num and CustomToggle.CurrentValue then apply(num) end
+        end
+    })
 end
 
 MakeInput("Max Stamina", DefaultStamina.Max, function(n) stamina.MaxStamina=n end)
@@ -815,153 +825,180 @@ MakeInput("Sprint Speed", DefaultStamina.Speed, function(n) stamina.SprintSpeed=
 
 --=== Expected Stamina Preview (two labels, separate pools) ===--
 local preview = {
-    cons = {},
-    SurvivorLabel = nil,
-    KillerLabel = nil,
-    stamSurvivor = 0,
-    stamKiller = 0,
-    created = false,
+    cons = {},
+    SurvivorLabel = nil,
+    KillerLabel = nil,
+    stamSurvivor = 0,
+    stamKiller = 0,
+    created = false,
 }
 
+-- Helper function to check the player's current role
+local function isPlayerKiller()
+    local inKillers = workspace.Players:FindFirstChild("Killers")
+    return inKillers and inKillers:FindFirstChild(Player.Name) ~= nil
+end
+
 local function nearestSurvivor(pos)
-    local closestDist = nil
-    for _, s in ipairs(workspace.Players.Survivors:GetChildren()) do
-        local hrp = s:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            local dist = (hrp.Position - pos).Magnitude
-            if not closestDist or dist < closestDist then
-                closestDist = dist
-            end
-        end
-    end
-    return closestDist
+    local closestDist = nil
+    for _, s in ipairs(workspace.Players.Survivors:GetChildren()) do
+        local hrp = s:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local dist = (hrp.Position - pos).Magnitude
+            if not closestDist or dist < closestDist then
+                closestDist = dist
+            end
+        end
+    end
+    return closestDist
 end
 
 local function makeLabel(parent, name)
-    local lbl = Instance.new("TextLabel")
-    lbl.Name = name
-    lbl.Size = UDim2.fromOffset(140,24)
-    lbl.Position = UDim2.new(0,10,.5,-12)
-    lbl.AnchorPoint = Vector2.new(0,.5)
-    lbl.BackgroundTransparency = 1
-    lbl.TextColor3 = Color3.new(1,1,1)
-    lbl.TextSize = 18
-    lbl.Font = Enum.Font.Gotham
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Visible = false
-    lbl.Parent = parent
-    return lbl
+    local lbl = Instance.new("TextLabel")
+    lbl.Name = name
+    lbl.Size = UDim2.fromOffset(140,24)
+    lbl.Position = UDim2.new(0,10,.5,-12)
+    lbl.AnchorPoint = Vector2.new(0,.5)
+    lbl.BackgroundTransparency = 1
+    lbl.TextColor3 = Color3.new(1,1,1)
+    lbl.TextSize = 18
+    lbl.Font = Enum.Font.Gotham
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Visible = false
+    lbl.Parent = parent
+    return lbl
 end
 
 local function EnablePreview()
-    if preview.created then
-        local inKillers = workspace.Players:FindFirstChild("Killers")
-        local isKiller = inKillers and inKillers:FindFirstChild(Player.Name)
-        preview.SurvivorLabel.Visible = not isKiller
-        preview.KillerLabel.Visible = isKiller
+    -- Get current max stamina values based on CustomToggle state
+    local maxS_Survivor = CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max
+    -- Killers use the custom max value if active, otherwise the game's default (115)
+    local maxS_Killer = CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.KillerMax
+    
+    local isKiller = isPlayerKiller()
+
+    if not preview.created then
+        local ui, btn = Player.PlayerGui.MainUI, Player.PlayerGui.MainUI.SprintingButton
+        if not ui or not btn then return end
+
+        preview.SurvivorLabel = makeLabel(ui, "SurvivorLabel")
+        preview.KillerLabel = makeLabel(ui, "KillerLabel")
+        
+        -- Set initial values based on current role
+        if isKiller then
+            preview.stamKiller = maxS_Killer
+        else
+            preview.stamSurvivor = maxS_Survivor
+        end
+        
+        local hum, root, shiftHeld, currRun = nil, nil, false, false
+        local function charAdded(c)
+            hum = c:WaitForChild("Humanoid")
+            root = c:WaitForChild("HumanoidRootPart")
+        end
+        if Player.Character then charAdded(Player.Character) end
+        Player.CharacterAdded:Connect(charAdded)
+
+        preview.cons = {
+            btn.MouseButton1Click:Connect(function() currRun = not currRun end),
+            UIS.InputBegan:Connect(function(i,g) if not g and i.KeyCode==Enum.KeyCode.LeftShift then shiftHeld=true end end),
+            UIS.InputEnded:Connect(function(i,g) if not g and i.KeyCode==Enum.KeyCode.LeftShift then shiftHeld=false end end),
+            RS.RenderStepped:Connect(function(dt)
+                if not (hum and root) then return end
+
+                local currentRoleIsKiller = isPlayerKiller() -- Check current role every frame
+                
+                -- Recalculate max stamina values dynamically
+                local currentMaxS_Survivor = CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max
+                local currentMaxS_Killer = CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.KillerMax
+                
+                local gain = CustomToggle.CurrentValue and stamina.StaminaGain or DefaultStamina.Gain
+                local loss = CustomToggle.CurrentValue and stamina.StaminaLoss or DefaultStamina.Loss
+                local thresh = 0.5
+                local range = 100
+
+                local moving = hum.MoveDirection.Magnitude > 0 and Vector3.new(root.Velocity.X,0,root.Velocity.Z).Magnitude > thresh
+                local active = (UIS.KeyboardEnabled and shiftHeld) or (UIS.TouchEnabled and currRun)
+
+                if currentRoleIsKiller then
+                    -- update killer stamina
+                    local near = nearestSurvivor(root.Position)
+                    local draining = active and moving and (near and near <= range)
+                    
+                    -- Use the Killer's Max Stamina for clamping and display
+                    preview.stamKiller = math.clamp(preview.stamKiller + (draining and -loss or gain) * dt, 0, currentMaxS_Killer)
+
+                    preview.KillerLabel.Text = string.format("Killer: %d/%d", math.floor(preview.stamKiller + 0.5), currentMaxS_Killer)
+                    preview.KillerLabel.Visible = true
+                    preview.SurvivorLabel.Visible = false
+                else
+                    -- update survivor stamina
+                    -- Use the Survivor's Max Stamina for clamping and display
+                    local draining = active and moving
+                    preview.stamSurvivor = math.clamp(preview.stamSurvivor + (draining and -loss or gain) * dt, 0, currentMaxS_Survivor)
+
+                    preview.SurvivorLabel.Text = string.format("Survivor: %d/%d", math.floor(preview.stamSurvivor + 0.5), currentMaxS_Survivor)
+                    preview.SurvivorLabel.Visible = true
+                    preview.KillerLabel.Visible = false
+                end
+            end)
+        }
+
+        preview.created = true
         return
+    end
+    
+    -- This block handles visibility and pool reset if the player's role changes while the preview is active
+    preview.SurvivorLabel.Visible = not isKiller
+    preview.KillerLabel.Visible = isKiller
+    
+    if isKiller then
+        preview.stamKiller = maxS_Killer
+    else
+        preview.stamSurvivor = maxS_Survivor
     end
-
-    local ui, btn = Player.PlayerGui.MainUI, Player.PlayerGui.MainUI.SprintingButton
-    if not ui or not btn then return end
-
-    preview.SurvivorLabel = makeLabel(ui, "SurvivorLabel")
-    preview.KillerLabel = makeLabel(ui, "KillerLabel")
-
-    preview.stamSurvivor = CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max
-    preview.stamKiller = 115
-
-    local hum, root, shiftHeld, currRun = nil, nil, false, false
-    local function charAdded(c)
-        hum = c:WaitForChild("Humanoid")
-        root = c:WaitForChild("HumanoidRootPart")
-    end
-    if Player.Character then charAdded(Player.Character) end
-    Player.CharacterAdded:Connect(charAdded)
-
-    preview.cons = {
-        btn.MouseButton1Click:Connect(function() currRun = not currRun end),
-        UIS.InputBegan:Connect(function(i,g) if not g and i.KeyCode==Enum.KeyCode.LeftShift then shiftHeld=true end end),
-        UIS.InputEnded:Connect(function(i,g) if not g and i.KeyCode==Enum.KeyCode.LeftShift then shiftHeld=false end end),
-        RS.RenderStepped:Connect(function(dt)
-            if not (hum and root) then return end
-
-            -- Explicitly check both folders
-            local inKillers = workspace.Players:FindFirstChild("Killers")
-            local inSurvivors = workspace.Players:FindFirstChild("Survivors")
-            local isKiller = (inKillers and inKillers:FindFirstChild(Player.Name)) ~= nil
-
-            local gain = CustomToggle.CurrentValue and stamina.StaminaGain or DefaultStamina.Gain
-            local loss = CustomToggle.CurrentValue and stamina.StaminaLoss or DefaultStamina.Loss
-            local thresh = 0.5
-            local range = 100
-
-            local moving = hum.MoveDirection.Magnitude > 0 and Vector3.new(root.Velocity.X,0,root.Velocity.Z).Magnitude > thresh
-            local active = (UIS.KeyboardEnabled and shiftHeld) or (UIS.TouchEnabled and currRun)
-
-            if isKiller then
-                -- update killer stamina
-                local near = nearestSurvivor(root.Position)
-                local draining = active and moving and (near and near <= range)
-                preview.stamKiller = math.clamp(preview.stamKiller + (draining and -loss or gain) * dt, 0, 115)
-
-                preview.KillerLabel.Text = string.format("Killer: %d/115", math.floor(preview.stamKiller + 0.5))
-                preview.KillerLabel.Visible = true
-                preview.SurvivorLabel.Visible = false
-            else
-                -- update survivor stamina
-                local maxS = CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max
-                local draining = active and moving
-                preview.stamSurvivor = math.clamp(preview.stamSurvivor + (draining and -loss or gain) * dt, 0, maxS)
-
-                preview.SurvivorLabel.Text = string.format("Survivor: %d/%d", math.floor(preview.stamSurvivor + 0.5), maxS)
-                preview.SurvivorLabel.Visible = true
-                preview.KillerLabel.Visible = false
-            end
-        end)
-    }
-
-    preview.created = true
 end
 
 local function DisablePreview()
-    if preview.SurvivorLabel then
-        preview.SurvivorLabel.Visible = false
-        preview.SurvivorLabel.Position = UDim2.new(-1,0,0,0)
-    end
-    if preview.KillerLabel then
-        preview.KillerLabel.Visible = false
-        preview.KillerLabel.Position = UDim2.new(-1,0,0,0)
-    end
+    if preview.SurvivorLabel then
+        preview.SurvivorLabel.Visible = false
+        -- Move label off-screen for a clean disable, though hiding it is usually enough
+        preview.SurvivorLabel.Position = UDim2.new(-1,0,0,0) 
+    end
+    if preview.KillerLabel then
+        preview.KillerLabel.Visible = false
+        -- Move label off-screen for a clean disable
+        preview.KillerLabel.Position = UDim2.new(-1,0,0,0)
+    end
 end
 
 PlayerTab:CreateToggle({
-    Name="Show Expected Stamina",
-    CurrentValue=false,
-    Flag="ShowExpectedStamina",
-    Callback=function(v) if v then EnablePreview() else DisablePreview() end end
+    Name="Show Expected Stamina",
+    CurrentValue=false,
+    Flag="ShowExpectedStamina",
+    Callback=function(v) if v then EnablePreview() else DisablePreview() end end
 })
 
 --=== Ingame Apply ===--
 local Ingame=workspace:WaitForChild("Map"):WaitForChild("Ingame")
 Ingame.ChildAdded:Connect(function(c)
-    if c.Name=="Map" then
-        task.wait(1)
-        if InfiniteToggle.CurrentValue then
-            stamina.StaminaLossDisabled=true
-        elseif CustomToggle.CurrentValue then
-            local flags=Rayfield.Flags
-            local function applyFlag(name,field)
-                local v=tonumber(flags[name].CurrentValue)
-                if v then stamina[field]=v end
-            end
-            applyFlag("Max Stamina","MaxStamina")
-            applyFlag("Min Stamina","MinStamina")
-            applyFlag("Stamina Gain","StaminaGain")
-            applyFlag("Stamina Loss","StaminaLoss")
-            applyFlag("Sprint Speed","SprintSpeed")
-        end
-    end
+    if c.Name=="Map" then
+        task.wait(1)
+        if InfiniteToggle.CurrentValue then
+            stamina.StaminaLossDisabled=true
+        elseif CustomToggle.CurrentValue then
+            local flags=Rayfield.Flags
+            local function applyFlag(name,field)
+                local v=tonumber(flags[name].CurrentValue)
+                if v then stamina[field]=v end
+            end
+            applyFlag("Max Stamina","MaxStamina")
+            applyFlag("Min Stamina","MinStamina")
+            applyFlag("Stamina Gain","StaminaGain")
+            applyFlag("Stamina Loss","StaminaLoss")
+            applyFlag("Sprint Speed","SprintSpeed")
+        end
+    end
 end)
 
 --//===[ Misc Tab ]===//--
