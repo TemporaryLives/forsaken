@@ -715,7 +715,7 @@ ESPTab:CreateToggle({
         end
     end
 })
-d
+
 --//===[ Player Tab ]===//--
 local PlayerTab = Window:CreateTab("Player", 89251076279188)
 local Player = Players.LocalPlayer
