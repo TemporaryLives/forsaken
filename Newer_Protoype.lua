@@ -155,6 +155,15 @@ local Colors = {
     DigitalFootprint = Color3.fromRGB(255, 99, 71)
 }
 
+-- Get LocalPlayer and their character for filtering
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local function isLocalPlayerModel(model)
+    -- Roblox character models are named after the player
+    return LocalPlayer and model.Name == LocalPlayer.Name
+end
+
 local function hasPlayerAura(model)
     return model:FindFirstChild("PlayerAura") and model.PlayerAura:IsA("Highlight")
 end
@@ -226,11 +235,13 @@ end
 
 local function applyPlayerHighlight(character, color)
     if not ESPState.PlayerHighlights or hasPlayerAura(character) then return end
+    if isLocalPlayerModel(character) then return end -- Don't highlight local player
     createHighlight(character, color, "Aura")
 end
 
 local function applyPlayerESP(character, color, modelName)
     if not ESPState.PlayerESP or hasPlayerAura(character) then return end
+    if isLocalPlayerModel(character) then return end -- Don't show ESP on local player
     
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     local head = character:FindFirstChild("Head")
@@ -243,6 +254,7 @@ end
 
 local function updatePlayerESP(character, color, modelName)
     if not ESPState.PlayerESP then return end
+    if isLocalPlayerModel(character) then return end -- Don't update ESP for local player
     
     local head = character:FindFirstChild("Head")
     local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -263,6 +275,8 @@ local function updatePlayerESP(character, color, modelName)
 end
 
 local function handlePlayer(model, isSurvivor)
+    if isLocalPlayerModel(model) then return end -- Don't ESP/highlight local player
+    
     local color = isSurvivor and Colors.Survivor or Colors.Killer
     local modelName = model.Name
     
