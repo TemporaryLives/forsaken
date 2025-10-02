@@ -1,5 +1,4 @@
---[[--     Yet Another Forsaken Script [Revamp]   --]]--
-       --[[--  Not finished/completed yet  --]]--
+--[[     Yet Another Forsaken Script [Revamp]   ]]--
 
 
 
