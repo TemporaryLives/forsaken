@@ -1,4 +1,8 @@
---[[--    Yet Another Forsaken Script Revamp    --]]--
+--[[--     Yet Another Forsaken Script [Revamp]   --]]--
+       --[[--  Not finished/completed yet  --]]--
+
+
+
 
 --//===[ Dependencies and Setup ]===//--
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
