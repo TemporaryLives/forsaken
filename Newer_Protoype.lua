@@ -862,12 +862,12 @@ local function EnablePreview()
 
     preview.StaminaLabel = makeLabel(ui, "StaminaLabel")
     
-    -- Initialize stamina based on current location
-    local inKillers = workspace.Players:FindFirstChild("Killers")
-    local isKiller = (inKillers and inKillers:FindFirstChild(Player.Name)) ~= nil
-    preview.currentStam = isKiller and 115 or (CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max)
+    -- Initialize stamina (will be corrected in RenderStepped)
+    preview.currentStam = 100
 
     local hum, root, shiftHeld, currRun = nil, nil, false, false
+    local lastIsKiller = nil
+    
     local function charAdded(c)
         hum = c:WaitForChild("Humanoid")
         root = c:WaitForChild("HumanoidRootPart")
@@ -882,10 +882,25 @@ local function EnablePreview()
         RS.RenderStepped:Connect(function(dt)
             if not (hum and root) then return end
 
-            -- Check which folder the player is in
+            -- Check which folder the player's CHARACTER is in
+            local char = Player.Character
+            if not char then return end
+            
             local inKillers = workspace.Players:FindFirstChild("Killers")
             local inSurvivors = workspace.Players:FindFirstChild("Survivors")
-            local isKiller = (inKillers and inKillers:FindFirstChild(Player.Name)) ~= nil
+            
+            -- Check if the character model is in the Killers folder by checking parent
+            local isKiller = false
+            if inKillers and char.Parent == inKillers then
+                isKiller = true
+            end
+            
+            -- If role changed, reset stamina to max
+            if lastIsKiller ~= nil and lastIsKiller ~= isKiller then
+                local newMax = isKiller and 115 or (CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max)
+                preview.currentStam = newMax
+            end
+            lastIsKiller = isKiller
 
             -- Set max stamina based on role
             local maxStam = isKiller and 115 or (CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max)
