@@ -743,7 +743,7 @@ ESPTab:CreateToggle({
 })
 
 --//===[ Player Tab ]===//--
-local PlayerTab = Window:CreateTab("Player", 6034509994)
+local PlayerTab = Window:CreateTab("Player", 89251076279188)
 local Player = Players.LocalPlayer
 local RS, UIS = game:GetService("RunService"), game:GetService("UserInputService")
 local Sprinting = game.ReplicatedStorage.Systems.Character.Game.Sprinting
@@ -855,7 +855,8 @@ end
 
 local function EnablePreview()
     if preview.created then
-        local isKiller = workspace.Players.Killers:FindFirstChild(Player.Name) ~= nil
+        local inKillers = workspace.Players:FindFirstChild("Killers")
+        local isKiller = inKillers and inKillers:FindFirstChild(Player.Name)
         preview.SurvivorLabel.Visible = not isKiller
         preview.KillerLabel.Visible = isKiller
         return
@@ -885,7 +886,11 @@ local function EnablePreview()
         RS.RenderStepped:Connect(function(dt)
             if not (hum and root) then return end
 
-            local isKiller = workspace.Players.Killers:FindFirstChild(Player.Name) ~= nil
+            -- Explicitly check both folders
+            local inKillers = workspace.Players:FindFirstChild("Killers")
+            local inSurvivors = workspace.Players:FindFirstChild("Survivors")
+            local isKiller = (inKillers and inKillers:FindFirstChild(Player.Name)) ~= nil
+
             local gain = CustomToggle.CurrentValue and stamina.StaminaGain or DefaultStamina.Gain
             local loss = CustomToggle.CurrentValue and stamina.StaminaLoss or DefaultStamina.Loss
             local thresh = 0.5
