@@ -1,5 +1,5 @@
 --[[
-    Yet Another Forsaken Script [Revamp]?
+    Yet Another Forsaken Script [Revamp]
    
 --]]
 
@@ -40,7 +40,7 @@ local function playFireSound()
     local s = Instance.new("Sound")
     s.SoundId = "rbxassetid://81355841754389"
     s.Volume = 1
-    s.Parent = workspace -- could also use SoundService
+    s.Parent = workspace
     s:Play()
     game:GetService("Debris"):AddItem(s, 5)
 end
@@ -155,13 +155,12 @@ local Colors = {
     DigitalFootprint = Color3.fromRGB(255, 99, 71)
 }
 
--- Get LocalPlayer and their character for filtering
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
+-- Robust local player filtering: check Character instance, not Name
 local function isLocalPlayerModel(model)
-    -- Roblox character models are named after the player
-    return LocalPlayer and model.Name == LocalPlayer.Name
+    return LocalPlayer.Character and model == LocalPlayer.Character
 end
 
 local function hasPlayerAura(model)
@@ -183,9 +182,10 @@ local function createHighlight(parent, color, name)
     return highlight
 end
 
+-- ESP label with dynamic size based on distance
 local function createESPLabel(parent, color, textLines)
     local existing = parent:FindFirstChild("ESPLabel")
-    if existing then return existing end
+    if existing then existing:Destroy() end -- always destroy and recreate for distance resizing
     
     local gui = Instance.new("BillboardGui")
     gui.Name = "ESPLabel"
@@ -193,18 +193,20 @@ local function createESPLabel(parent, color, textLines)
     gui.StudsOffset = Vector3.new(0, 3, 0)
     gui.AlwaysOnTop = true
     gui.MaxDistance = 500
+    gui.Adornee = parent
     gui.Parent = parent
-    
+
     local frame = Instance.new("Frame")
+    frame.Name = "Frame"
     frame.Size = UDim2.new(1, 0, 1, 0)
     frame.BackgroundTransparency = 1
     frame.Parent = gui
-    
+
     local layout = Instance.new("UIListLayout")
     layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     layout.Padding = UDim.new(0, -5)
     layout.Parent = frame
-    
+
     for i, text in ipairs(textLines) do
         local label = Instance.new("TextLabel")
         label.Name = "Line" .. i
@@ -217,7 +219,25 @@ local function createESPLabel(parent, color, textLines)
         label.Font = Enum.Font.GothamBold
         label.Parent = frame
     end
-    
+
+    -- Distance-based resizing
+    local runConn
+    runConn = game:GetService("RunService").RenderStepped:Connect(function()
+        if not gui.Parent or not gui.Parent:IsDescendantOf(game) then
+            runConn:Disconnect()
+            return
+        end
+        local camera = workspace.CurrentCamera
+        if not camera then return end
+        local headPos = parent.Position
+        local camPos = camera.CFrame.Position
+        local dist = (headPos-camPos).Magnitude
+        -- BillboardGui size scales with distance: larger when far away, but capped
+        -- Normal size at 0-60 studs, max 2x at 150+ studs
+        local scale = math.clamp(1.0 + ((dist-60)/90)*1, 1, 2)
+        gui.Size = UDim2.new(4*scale,0,1*scale,0)
+    end)
+
     return gui
 end
 
@@ -755,7 +775,6 @@ ESPTab:CreateToggle({
         end
     end
 })
-
 --//===[ Player Tab ]===//--
 local PlayerTab = Window:CreateTab("Player", 89251076279188)
 local Player = Players.LocalPlayer
