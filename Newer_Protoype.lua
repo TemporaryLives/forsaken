@@ -868,22 +868,6 @@ local function nearestSurvivor(pos)
     return closestDist
 end
 
-local function makeLabel(parent, name)
-    local lbl = Instance.new("TextLabel")
-    lbl.Name = name
-    lbl.Size = UDim2.fromOffset(140,24)
-    lbl.Position = UDim2.new(0,10,.5,-12)
-    lbl.AnchorPoint = Vector2.new(0,.5)
-    lbl.BackgroundTransparency = 1
-    lbl.TextColor3 = Color3.new(1,1,1)
-    lbl.TextSize = 18
-    lbl.Font = Enum.Font.Gotham
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Visible = false
-    lbl.Parent = parent
-    return lbl
-end
-
 local function EnablePreview()
     if preview.created then
         preview.StaminaLabel.Visible = true
@@ -894,74 +878,73 @@ local function EnablePreview()
     if not ui or not btn then return end
 
     preview.StaminaLabel = makeLabel(ui, "StaminaLabel")
-    
-    -- Initialize stamina (will be corrected in RenderStepped)
-    preview.currentStam = 100
-
-    local hum, root, shiftHeld, currRun = nil, nil, false, false
+    preview.currentStam = 100 -- temporary until role is checked
+    local hum, root, char = nil, nil, nil
     local lastIsKiller = nil
-    
+
+    -- Character setup
     local function charAdded(c)
+        char = c
         hum = c:WaitForChild("Humanoid")
         root = c:WaitForChild("HumanoidRootPart")
+        preview.currentStam = 100
     end
     if Player.Character then charAdded(Player.Character) end
     Player.CharacterAdded:Connect(charAdded)
 
+    -- Connections
     preview.cons = {
-        btn.MouseButton1Click:Connect(function() currRun = not currRun end),
-        UIS.InputBegan:Connect(function(i,g) if not g and i.KeyCode==Enum.KeyCode.LeftShift then shiftHeld=true end end),
-        UIS.InputEnded:Connect(function(i,g) if not g and i.KeyCode==Enum.KeyCode.LeftShift then shiftHeld=false end end),
         RS.RenderStepped:Connect(function(dt)
-            if not (hum and root) then return end
+            if not (hum and root and char) then return end
 
-            -- Check which folder the player's CHARACTER is in
-            local char = Player.Character
-            if not char then return end
-            
+            -- Check role (Killer / Survivor)
             local inKillers = workspace.Players:FindFirstChild("Killers")
-            local inSurvivors = workspace.Players:FindFirstChild("Survivors")
-            
-            -- Check if the character model is in the Killers folder by checking parent
-            local isKiller = false
-            if inKillers and char.Parent == inKillers then
-                isKiller = true
-            end
-            
-            -- If role changed, reset stamina to max
+            local isKiller = (inKillers and char.Parent == inKillers) or false
+
+            -- Reset stamina if role changes
             if lastIsKiller ~= nil and lastIsKiller ~= isKiller then
                 local newMax = isKiller and 110 or (CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max)
                 preview.currentStam = newMax
             end
             lastIsKiller = isKiller
 
-            -- Set max stamina based on role
+            -- Max stamina per role
             local maxStam = isKiller and 110 or (CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max)
-            
-            local gain = CustomToggle.CurrentValue and stamina.StaminaGain or DefaultStamina.Gain
-            local loss = CustomToggle.CurrentValue and stamina.StaminaLoss or DefaultStamina.Loss
-            local thresh = 0.5
-            local range = 100
+            local gain    = CustomToggle.CurrentValue and stamina.StaminaGain or DefaultStamina.Gain
+            local loss    = CustomToggle.CurrentValue and stamina.StaminaLoss or DefaultStamina.Loss
+            local thresh  = 0.5
+            local range   = 100
 
+            -- ✅ Sprint detection via FOV multiplier
+            local fovMult = char:FindFirstChild("FOVMultipliers")
+            local sprintingVal = fovMult and fovMult:FindFirstChild("Sprinting")
+            local active = sprintingVal and sprintingVal.Value > 1
+
+            -- Movement check
             local moving = hum.MoveDirection.Magnitude > 0 and Vector3.new(root.Velocity.X,0,root.Velocity.Z).Magnitude > thresh
-            local active = (UIS.KeyboardEnabled and shiftHeld) or (UIS.TouchEnabled and currRun)
 
-            local draining = false
+            -- Drain logic
+            local draining
             if isKiller then
-                -- Killer only drains when near survivor
                 local near = nearestSurvivor(root.Position)
                 draining = active and moving and (near and near <= range)
             else
-                -- Survivor drains when sprinting and moving
                 draining = active and moving
             end
 
             -- Update stamina
-            preview.currentStam = math.clamp(preview.currentStam + (draining and -loss or gain) * dt, 0, maxStam)
+            preview.currentStam = math.clamp(
+                preview.currentStam + (draining and -loss or gain) * dt,
+                0, maxStam
+            )
 
-            -- Display with role label
-            local roleText = isKiller and "Killer" or "Survivor"
-            preview.StaminaLabel.Text = string.format("%s: %d/%d", roleText, math.floor(preview.currentStam + 0.5), maxStam)
+            -- Display label
+            preview.StaminaLabel.Text = string.format(
+                "%s: %d/%d",
+                isKiller and "Killer" or "Survivor",
+                math.floor(preview.currentStam + 0.5),
+                maxStam
+            )
             preview.StaminaLabel.Visible = true
         end)
     }
@@ -972,8 +955,11 @@ end
 local function DisablePreview()
     if preview.StaminaLabel then
         preview.StaminaLabel.Visible = false
-        preview.StaminaLabel.Position = UDim2.new(-1,0,0,0)
+        -- Move it offscreen just in case
+        preview.StaminaLabel.Position = UDim2.new(-1, 0, 0, 0)
     end
+    
+    preview.created = true 
 end
 
 PlayerTab:CreateToggle({
