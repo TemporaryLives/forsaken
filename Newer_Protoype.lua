@@ -852,6 +852,8 @@ local preview = {
     StaminaLabel = nil,
     currentStam = 0,
     created = false,
+    lastCheck = 0,
+    forceSim = false, -- backup detection
 }
 
 local function nearestSurvivor(pos)
@@ -874,11 +876,11 @@ local function EnablePreview()
         return
     end
 
-    local ui, btn = Player.PlayerGui.MainUI, Player.PlayerGui.MainUI.SprintingButton
-    if not ui or not btn then return end
+    local ui = Player.PlayerGui:FindFirstChild("MainUI")
+    if not ui then return end
 
     preview.StaminaLabel = makeLabel(ui, "StaminaLabel")
-    preview.currentStam = 100 -- temporary until role is checked
+    preview.currentStam = 100
     local hum, root, char = nil, nil, nil
     local lastIsKiller = nil
 
@@ -892,35 +894,40 @@ local function EnablePreview()
     if Player.Character then charAdded(Player.Character) end
     Player.CharacterAdded:Connect(charAdded)
 
+    -- Real stamina label from the game
+    local realStamLabel = Player.PlayerGui
+        :WaitForChild("TemporaryUI")
+        :WaitForChild("PlayerInfo")
+        :WaitForChild("Bars")
+        :WaitForChild("Stamina")
+        :WaitForChild("Amount")
+
     -- Connections
     preview.cons = {
         RS.RenderStepped:Connect(function(dt)
             if not (hum and root and char) then return end
 
-            -- Check role (Killer / Survivor)
+            -- Check role
             local inKillers = workspace.Players:FindFirstChild("Killers")
             local isKiller = (inKillers and char.Parent == inKillers) or false
 
-            -- Reset stamina if role changes
             if lastIsKiller ~= nil and lastIsKiller ~= isKiller then
                 local newMax = isKiller and 110 or (CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max)
                 preview.currentStam = newMax
             end
             lastIsKiller = isKiller
 
-            -- Max stamina per role
+            -- Stamina values
             local maxStam = isKiller and 110 or (CustomToggle.CurrentValue and stamina.MaxStamina or DefaultStamina.Max)
             local gain    = CustomToggle.CurrentValue and stamina.StaminaGain or DefaultStamina.Gain
             local loss    = CustomToggle.CurrentValue and stamina.StaminaLoss or DefaultStamina.Loss
             local thresh  = 0.5
             local range   = 100
 
-            -- ✅ Sprint detection via FOV multiplier
+            -- Sprint detection
             local fovMult = char:FindFirstChild("FOVMultipliers")
             local sprintingVal = fovMult and fovMult:FindFirstChild("Sprinting")
             local active = sprintingVal and sprintingVal.Value > 1
-
-            -- Movement check
             local moving = hum.MoveDirection.Magnitude > 0 and Vector3.new(root.Velocity.X,0,root.Velocity.Z).Magnitude > thresh
 
             -- Drain logic
@@ -932,19 +939,36 @@ local function EnablePreview()
                 draining = active and moving
             end
 
-            -- Update stamina
-            preview.currentStam = math.clamp(
-                preview.currentStam + (draining and -loss or gain) * dt,
-                0, maxStam
-            )
+            -- Detect infinite stamina mode
+            local isInfinite = InfiniteToggle.CurrentValue
+            if not isInfinite and active and moving and tick() - preview.lastCheck > 0.5 then
+                preview.lastCheck = tick()
+                local before = tonumber(realStamLabel.Text) or 0
+                task.delay(0.25, function()
+                    local after = tonumber(realStamLabel.Text) or 0
+                    if active and moving and after == before then
+                        preview.forceSim = true
+                    else
+                        preview.forceSim = false
+                    end
+                end)
+            end
 
-            -- Display label
-            preview.StaminaLabel.Text = string.format(
-                "%s: %d/%d",
-                isKiller and "Killer" or "Survivor",
-                math.floor(preview.currentStam + 0.5),
-                maxStam
-            )
+            -- Decide whether to simulate or mirror
+            if isInfinite or preview.forceSim then
+                preview.currentStam = math.clamp(
+                    preview.currentStam + (draining and -loss or gain) * dt,
+                    0, maxStam
+                )
+                preview.StaminaLabel.Text = string.format("Expected %s: %d/%d",
+                    isKiller and "Killer" or "Survivor",
+                    math.floor(preview.currentStam + 0.5),
+                    maxStam
+                )
+            else
+                preview.StaminaLabel.Text = "Stamina: " .. realStamLabel.Text
+            end
+
             preview.StaminaLabel.Visible = true
         end)
     }
@@ -955,9 +979,9 @@ end
 local function DisablePreview()
     if preview.StaminaLabel then
         preview.StaminaLabel.Visible = false
-        -- Move it offscreen just in case
         preview.StaminaLabel.Position = UDim2.new(-1, 0, 0, 0)
     end
+end
     
     preview.created = true 
 end
