@@ -979,11 +979,10 @@ end
 local function DisablePreview()
     if preview.StaminaLabel then
         preview.StaminaLabel.Visible = false
-        preview.StaminaLabel.Position = UDim2.new(-1, 0, 0, 0)
+        preview.StaminaLabel.Position = UDim2.new(-1, 0, 0, 0) -- move offscreen just in case
     end
-end
-    
-    preview.created = true 
+
+    preview.created = false 
 end
 
 PlayerTab:CreateToggle({
