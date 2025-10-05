@@ -1090,15 +1090,15 @@ MiscTab:CreateToggle({
     Name = "Block New Glitched Effect",
     CurrentValue = false,
     Callback = function(state)
-        local sub = game:GetService("ReplicatedStorage").Modules.StatusEffects.KillerrExclusive
+        local sub = game:GetService("ReplicatedStorage").Modules.StatusEffects.KillerExclusive
 
         if state then
             if sub:FindFirstChild("Glitched") then
-                sub.Subspaced.Name = "TheNewGlitched"
+                sub.Glitched.Name = "TheNewGlitched"
             end
         else
             if sub:FindFirstChild("TheNewGlitched") then
-                sub.Subzerospaced.Name = "Glitched"
+                sub.TheNewGlitched.Name = "Glitched"
             end
         end
 
