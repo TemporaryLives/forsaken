@@ -36,13 +36,13 @@ local function getClosestGenerator(maxDist)
     return closest
 end
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local function playFireSound()
-    local s = Instance.new("Sound")
-    s.SoundId = "rbxassetid://81355841754389"
-    s.Volume = 1
-    s.Parent = workspace
-    s:Play()
-    game:GetService("Debris"):AddItem(s, 5)
+	local sound = ReplicatedStorage.Assets.Sounds.SFX.Generators.puzzleDone:Clone()
+	sound.Parent = workspace
+	sound:Play()
+	game:GetService("Debris"):AddItem(sound, sound.TimeLength + 1)
 end
 
 --//===[ Generator Tab ]===//--
