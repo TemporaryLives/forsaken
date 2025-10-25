@@ -189,7 +189,7 @@ local function createESPLabel(parent, color, textLines)
     
     local gui = Instance.new("BillboardGui")
     gui.Name = "ESPLabel"
-    gui.Size = UDim2.new(4, 0, 1, 0)
+    gui.Size = UDim2.new(4, 0, 2, 0)
     gui.StudsOffset = Vector3.new(0, 3, 0)
     gui.AlwaysOnTop = true
     gui.MaxDistance = 500
