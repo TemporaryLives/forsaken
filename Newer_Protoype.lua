@@ -176,7 +176,7 @@ local function createHighlight(parent, color, name)
     highlight.Name = name or "Aura"
     highlight.FillColor = color
     highlight.OutlineColor = color
-    highlight.FillTransparency = 0.5
+    highlight.FillTransparency = 1
     highlight.OutlineTransparency = 0
     highlight.Parent = parent
     return highlight
@@ -985,12 +985,12 @@ local function DisablePreview()
     preview.created = false 
 end
 
-PlayerTab:CreateToggle({
-    Name="Show Expected Stamina",
-    CurrentValue=false,
-    Flag="ShowExpectedStamina",
-    Callback=function(v) if v then EnablePreview() else DisablePreview() end end
-})
+--PlayerTab:CreateToggle({
+    --Name="Show Expected Stamina",
+    --CurrentValue=false,
+    --Flag="ShowExpectedStamina",
+    --Callback=function(v) if v then EnablePreview() else DisablePreview() end end
+--})
 
 --=== Ingame Apply ===--
 local Ingame=workspace:WaitForChild("Map"):WaitForChild("Ingame")
@@ -1019,7 +1019,7 @@ local MiscTab = Window:CreateTab("Misc", 72612560514066)
 local RoundTimer = LocalPlayer.PlayerGui:WaitForChild("RoundTimer").Main
 
 -- Privacy Settings Toggle
-MiscTab:CreateToggle({
+MiscTab:CreateButton({
     Name = "Delete Privacy Settings",
     CurrentValue = false,
     Flag = "DeletePrivacy",
@@ -1040,7 +1040,7 @@ MiscTab:CreateToggle({
 })
 
 MiscTab:CreateSlider({
-    Name = "Round Timer X Position",
+    Name = "Round Timer Position",
     Range = {0.2, 0.8},
     Increment = 0.01,
     CurrentValue = 0.5,
@@ -1111,8 +1111,7 @@ MiscTab:CreateToggle({
     end
 })
 
--- c00lgui Tracker implementation and toggle
--- (Tracker code grouped and documented here)
+-- c00lgui Tracker
 local trackerEnabled=false
 local cooldownTime=30
 local lastTrigger={}
