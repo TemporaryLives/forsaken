@@ -1,6 +1,4 @@
---[[
-    Yet Another Forsaken Script [Revamp]
---]]
+--[[   Yet Another Forsaken Script [Revamp] ]]--
 
 --// =====[ Dependencies & Core Services ]===== //--
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
