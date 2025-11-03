@@ -1,4 +1,6 @@
---[[   Yet Another Forsaken Script [Revamp] ]]--
+--[[
+    Yet Another Forsaken Script [Revamp]
+--]]
 
 --// =====[ Dependencies & Core Services ]===== //--
 local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
@@ -6,7 +8,7 @@ local Window = Rayfield:CreateWindow({
     Name = "Yet Another Forsaken Script",
     LoadingTitle = "YAFS",
     LoadingSubtitle = "Loading...",
-    ShowText = "Open Menu",
+    ShowText = "Menu",
     ConfigurationSaving = {Enabled = false},
     Discord = {Enabled = false}
 })
