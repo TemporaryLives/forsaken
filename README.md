@@ -1,1 +1,5 @@
 # forsaken
+
+``` lua
+loadstring(game:HttpGet('https://raw.githubusercontent.com/TemporaryLives/forsaken/refs/heads/main/Release.lua'))()
+```
